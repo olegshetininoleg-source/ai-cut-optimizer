@@ -1,61 +1,141 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Cut Optimizer - SoftHunterPro</title>
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f2f5; padding: 20px; color: #333; }
-        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
-        h1 { color: #1a73e8; text-align: center; margin-bottom: 25px; }
-        label { font-size: 0.9em; color: #666; font-weight: bold; }
-        input, textarea { width: 100%; padding: 12px; margin: 8px 0 20px 0; box-sizing: border-box; border: 2px solid #dfe1e5; border-radius: 8px; font-size: 16px; transition: border-color 0.3s; }
-        input:focus, textarea:focus { border-color: #1a73e8; outline: none; }
-        .btn-group { display: flex; gap: 10px; }
-        button { flex: 1; padding: 15px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: transform 0.1s, opacity 0.3s; }
-        button:active { transform: scale(0.98); }
-        .calc-btn { background-color: #1a73e8; color: white; }
-        .print-btn { background-color: #34a853; color: white; }
-        #results { margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; }
-        .error-msg { background-color: #fce8e6; color: #d93025; padding: 15px; border-radius: 8px; border: 1px solid #fad2cf; }
-        canvas { border: 1px solid #bdc1c6; display: block; margin: 25px auto; max-width: 100%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
-        @media print { .controls, h1, button { display: none !important; } .container { box-shadow: none; width: 100%; max-width: none; } }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🛠️ Мастер раскроя PRO</h1>
+<script>
+// ==================== МАСТЕР РАСКРОЯ PRO ====================
+
+function calculateCutting() {
+    const sheetW = parseFloat(document.getElementById('sheetW').value);
+    const sheetH = parseFloat(document.getElementById('sheetH').value);
+    const kerf = parseFloat(document.getElementById('kerf').value) || 0;
+    
+    const partsInput = document.getElementById('partsInput').value.trim();
+    
+    if (!sheetW || !sheetH) {
+        showError("Укажите размеры листа!");
+        return;
+    }
+    
+    const lines = partsInput.split('\n').filter(line => line.trim() !== '');
+    const parts = [];
+    
+    for (let line of lines) {
+        const tokens = line.split(',').map(t => t.trim());
+        if (tokens.length < 4) continue;
         
-        <div class="controls">
-            <div style="display: flex; gap: 15px;">
-                <div style="flex: 1;">
-                    <label>Ширина листа (мм)</label>
-                    <input type="number" id="sheetW" value="2440">
-                </div>
-                <div style="flex: 1;">
-                    <label>Высота листа (мм)</label>
-                    <input type="number" id="sheetH" value="1220">
-                </div>
-                <div style="flex: 1;">
-                    <label>Пропил (мм)</label>
-                    <input type="number" id="kerf" value="4">
-                </div>
-            </div>
+        const name = tokens[0];
+        const w = parseFloat(tokens[1]);
+        const h = parseFloat(tokens[2]);
+        const qty = parseInt(tokens[3]);
+        const edgeW = tokens[4] ? parseInt(tokens[4]) : 0;
+        const edgeH = tokens[5] ? parseInt(tokens[5]) : 0;
+        
+        if (w && h && qty) {
+            parts.push({ name, w: w + edgeW*2, h: h + edgeH*2, qty });
+        }
+    }
+    
+    if (parts.length === 0) {
+        showError("Не удалось разобрать список деталей!");
+        return;
+    }
+    
+    // Простой жадный алгоритм раскроя
+    const resultHTML = generateCuttingLayout(sheetW, sheetH, kerf, parts);
+    
+    document.getElementById('results').innerHTML = resultHTML;
+}
 
-            <label>Детали (Название, Ш, В, Кол-во, Кромка_Ш, Кромка_В):</label>
-            <textarea id="partsInput" rows="6" placeholder="Напр: Полка, 800, 400, 4, 1, 2">Полка, 800, 400, 4, 1, 2
-Боковина, 1200, 300, 2, 2, 2</textarea>
+// Показ ошибки
+function showError(msg) {
+    document.getElementById('results').innerHTML = 
+        `<div class="error-msg">${msg}</div>`;
+}
 
-            <div class="btn-group">
-                <button class="calc-btn" onclick="calculateCutting()">Рассчитать карту</button>
-                <button class="print-btn" onclick="window.print()">Печать схемы</button>
-            </div>
-        </div>
+// Основная функция генерации раскроя
+function generateCuttingLayout(sheetW, sheetH, kerf, parts) {
+    let html = `<h2>Результат раскроя</h2>`;
+    let totalArea = 0;
+    let usedArea = 0;
+    
+    html += `<p><strong>Лист:</strong> ${sheetW} × ${sheetH} мм</p>`;
+    
+    parts.forEach(part => {
+        const area = part.w * part.h * part.qty;
+        totalArea += area;
+        html += `<p><strong>${part.name}</strong>: ${part.w}×${part.h} мм × ${part.qty} шт. (${area} мм²)</p>`;
+    });
+    
+    // Очень простой алгоритм (однонаправленный)
+    html += `<h3>Схема раскроя (упрощённая):</h3>`;
+    html += `<canvas id="cuttingCanvas" width="800" height="500"></canvas>`;
+    
+    // Расчёт эффективности
+    const sheetArea = sheetW * sheetH;
+    const efficiency = Math.round((totalArea / (sheetArea * Math.ceil(totalArea / sheetArea))) * 100);
+    
+    html += `<p><strong>Примерная эффективность:</strong> ${efficiency}%</p>`;
+    
+    // Запускаем отрисовку на canvas после добавления в DOM
+    setTimeout(() => drawCuttingPlan(sheetW, sheetH, kerf, parts), 100);
+    
+    return html;
+}
 
-        <div id="results">
-            </div>
-    </div>
-
-    <script src="script.js"></script>
-</body>
-</html>
+// Отрисовка схемы на canvas
+function drawCuttingPlan(sheetW, sheetH, kerf, parts) {
+    const canvas = document.getElementById('cuttingCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const scale = Math.min(780 / sheetW, 480 / sheetH);
+    
+    canvas.width = sheetW * scale + 20;
+    canvas.height = sheetH * scale + 20;
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Лист
+    ctx.fillStyle = '#f8f9fa';
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 3;
+    ctx.fillRect(10, 10, sheetW*scale, sheetH*scale);
+    ctx.strokeRect(10, 10, sheetW*scale, sheetH*scale);
+    
+    let x = 10;
+    let y = 10;
+    let colorIndex = 0;
+    const colors = ['#4285f4', '#34a853', '#fbbc05', '#ea4335', '#9c27b0'];
+    
+    parts.forEach(part => {
+        const partW = part.w * scale;
+        const partH = part.h * scale;
+        
+        for (let i = 0; i < part.qty; i++) {
+            if (x + partW > canvas.width - 10) {
+                x = 10;
+                y += partH + kerf*scale;
+            }
+            
+            if (y + partH > canvas.height - 10) {
+                // Новый "лист" (просто смещаем цвет)
+                ctx.fillStyle = '#eeeeee';
+                ctx.fillRect(10, 10, sheetW*scale, sheetH*scale);
+                y = 10;
+                x = 10;
+            }
+            
+            ctx.fillStyle = colors[colorIndex % colors.length];
+            ctx.fillRect(x, y, partW - 2, partH - 2);
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, partW - 2, partH - 2);
+            
+            // Подпись
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(part.name.substring(0,8), x + partW/2 - 1, y + partH/2 + 5);
+            
+            x += partW + kerf*scale;
+        }
+        colorIndex++;
+    });
+}
+</script>
