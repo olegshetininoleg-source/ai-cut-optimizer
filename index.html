@@ -7,197 +7,62 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
         
-        body { 
-            font-family: 'Inter', system-ui, sans-serif; 
-            background: linear-gradient(135deg, #f0f2f5, #e8eaf0); 
-            padding: 20px; 
-            color: #1f2937; 
-            margin: 0;
-        }
-        .container { 
-            max-width: 960px; 
-            margin: 0 auto; 
-            background: white; 
-            padding: 35px; 
-            border-radius: 20px; 
-            box-shadow: 0 20px 40px rgba(0,0,0,0.12); 
-        }
-        h1 { 
-            color: #1e40af; 
-            text-align: center; 
-            margin: 0 0 30px 0; 
-            font-size: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-        }
-        .logo { font-size: 32px; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: linear-gradient(135deg, #f0f2f5, #e8eaf0); padding: 20px; color: #1f2937; margin: 0; }
+        .container { max-width: 1120px; margin: 0 auto; background: white; padding: 35px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
+        h1 { color: #1e40af; text-align: center; margin: 0 0 30px 0; font-size: 29px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .logo { font-size: 34px; }
         
-        .inputs-row {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-        .input-group {
-            flex: 1;
-        }
-        label { 
-            display: block; 
-            font-size: 14px; 
-            font-weight: 600; 
-            color: #4b5563; 
-            margin-bottom: 6px;
-        }
-        input, textarea { 
-            width: 100%; 
-            padding: 14px 16px; 
-            border: 2px solid #e5e7eb; 
-            border-radius: 12px; 
-            font-size: 17px; 
-            transition: all 0.3s;
-        }
-        input:focus, textarea:focus { 
-            border-color: #1e40af; 
-            box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.15);
-            outline: none;
-        }
+        .inputs-row { display: flex; gap: 20px; margin-bottom: 25px; }
+        .input-group { flex: 1; }
+        label { display: block; font-size: 14px; font-weight: 600; color: #4b5563; margin-bottom: 6px; }
+        input, textarea { width: 100%; padding: 14px 16px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 17px; }
+        input:focus, textarea:focus { border-color: #1e40af; box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.15); outline: none; }
         
-        .parts-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #4b5563;
-            margin: 25px 0 8px 0;
-        }
-        
-        textarea {
-            min-height: 130px;
-            resize: vertical;
-            font-family: monospace;
-            line-height: 1.5;
-        }
-        
-        .options {
-            margin: 20px 0;
-            padding: 15px;
-            background: #f8fafc;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-        }
-        
-        .btn-group { 
-            display: flex; 
-            gap: 15px; 
-            margin-top: 25px;
-        }
-        button { 
-            flex: 1; 
-            padding: 16px; 
-            border: none; 
-            border-radius: 12px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            font-size: 17px; 
-            transition: all 0.2s;
-        }
-        button:active { transform: scale(0.97); }
-        .calc-btn { 
-            background: #1e40af; 
-            color: white; 
-        }
-        .calc-btn:hover { background: #1a3a9e; }
-        .print-btn { 
-            background: #10b981; 
-            color: white; 
-        }
-        .print-btn:hover { background: #0f9c6e; }
-        
-        #results { 
-            margin-top: 35px; 
-            padding-top: 25px; 
-            border-top: 2px dashed #e5e7eb; 
-        }
-        .error-msg { 
-            background: #fee2e2; 
-            color: #b91c1c; 
-            padding: 18px; 
-            border-radius: 12px; 
-            border: 1px solid #fecaca;
-        }
         canvas { 
             border: 3px solid #1e40af; 
             border-radius: 16px; 
             box-shadow: 0 10px 30px rgba(30, 64, 175, 0.15);
             background: #f8fafc;
             display: block;
-            margin: 20px auto;
+            margin: 15px auto;
             max-width: 100%;
+            cursor: grab;
         }
-        .stats {
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            margin-top: 15px;
-        }
-        .stat-card {
-            background: #f8fafc;
-            padding: 14px 20px;
-            border-radius: 12px;
-            flex: 1;
-            min-width: 180px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        .edge-info {
-            background: #fefce8;
-            border: 2px solid #ca8a04;
-            color: #854d0e;
-            padding: 16px;
-            border-radius: 12px;
-            margin-top: 20px;
-        }
-        @media print {
-            .controls, .btn-group, h1 { display: none !important; }
-            .container { box-shadow: none; padding: 10px; max-width: none; }
-            canvas { border: 2px solid #333; }
-        }
+        canvas:active { cursor: grabbing; }
+        
+        .sheet-header { background: #1e40af; color: white; padding: 10px 18px; border-radius: 8px 8px 0 0; font-weight: 600; font-size: 18px; margin-top: 25px; }
+        .manual-controls { margin: 12px 0 25px 0; padding: 12px; background: #f8fafc; border-radius: 12px; text-align: center; }
+        button { padding: 10px 18px; margin: 5px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .btn-rotate { background: #f59e0b; color: white; }
+        .btn-optimize { background: #10b981; color: white; }
+        
+        .info { font-size: 14px; color: #64748b; margin: 10px 0; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1><span class="logo">🛠️</span> Мастер раскроя PRO</h1>
+        <h1><span class="logo">🛠️</span> Мастер раскроя PRO v4.2 — Перетаскивание</h1>
         
         <div class="controls">
             <div class="inputs-row">
-                <div class="input-group">
-                    <label>Ширина листа (мм)</label>
-                    <input type="number" id="sheetW" value="2440">
-                </div>
-                <div class="input-group">
-                    <label>Высота листа (мм)</label>
-                    <input type="number" id="sheetH" value="1220">
-                </div>
-                <div class="input-group">
-                    <label>Пропил (мм)</label>
-                    <input type="number" id="kerf" value="4">
-                </div>
+                <div class="input-group"><label>Ширина листа (мм)</label><input type="number" id="sheetW" value="2440"></div>
+                <div class="input-group"><label>Высота листа (мм)</label><input type="number" id="sheetH" value="1220"></div>
+                <div class="input-group"><label>Пропил (мм)</label><input type="number" id="kerf" value="4"></div>
             </div>
 
-            <div class="parts-label">
-                Детали (Название, Ш, В, Кол-во, Кромка_Ш, Кромка_В):
-            </div>
+            <div class="parts-label">Детали (Название, Ш, В, Кол-во, Кромка_Ш, Кромка_В):</div>
             <textarea id="partsInput" rows="5">Полка, 800, 400, 4, 1, 2
 Боковина, 1200, 300, 2, 2, 2</textarea>
 
             <div class="options">
-                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                    <input type="checkbox" id="allowRotate" checked>
-                    <span style="font-weight:600;">✅ Разрешить поворот деталей на 90°</span>
+                <label style="display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" id="allowRotate" checked> Разрешить поворот деталей на 90°
                 </label>
             </div>
 
             <div class="btn-group">
-                <button class="calc-btn" onclick="calculateCutting()">Рассчитать карту</button>
-                <button class="print-btn" onclick="window.print()">Печать схемы</button>
+                <button class="calc-btn" onclick="calculateCutting()">Рассчитать автоматически</button>
+                <button class="print-btn" onclick="window.print()">Печать всех листов</button>
             </div>
         </div>
 
@@ -205,235 +70,228 @@
     </div>
 
     <script>
-        // ==================== МАСТЕР РАСКРОЯ PRO v3.1 ====================
-        // Добавлена кромка: где кромковать + сколько метров нужно
+        let allSheets = [];
+        let currentSheetW = 2440, currentSheetH = 1220, currentKerf = 4;
+        let allowRotateGlobal = true;
+        let draggedItem = null;
+        let dragSheetIndex = -1;
+        let scaleCache = 1;
+        let offsetCache = 30;
 
         function calculateCutting() {
-            const sheetW = parseFloat(document.getElementById('sheetW').value) || 0;
-            const sheetH = parseFloat(document.getElementById('sheetH').value) || 0;
-            const kerf = parseFloat(document.getElementById('kerf').value) || 0;
-            const allowRotate = document.getElementById('allowRotate').checked;
+            currentSheetW = parseFloat(document.getElementById('sheetW').value) || 2440;
+            currentSheetH = parseFloat(document.getElementById('sheetH').value) || 1220;
+            currentKerf = parseFloat(document.getElementById('kerf').value) || 4;
+            allowRotateGlobal = document.getElementById('allowRotate').checked;
 
             const input = document.getElementById('partsInput').value.trim();
-
-            if (sheetW <= 0 || sheetH <= 0) {
-                showError("❌ Укажите ширину и высоту листа!");
-                return;
-            }
-
-            const lines = input.split('\n').filter(l => l.trim() !== '');
             let parts = [];
+            const lines = input.split('\n').filter(l => l.trim() !== '');
 
-            for (let line of lines) {
-                const tokens = line.split(',').map(t => t.trim());
-                if (tokens.length < 4) continue;
+            lines.forEach((line, idx) => {
+                const t = line.split(',').map(x => x.trim());
+                if (t.length < 4) return;
+                const netW = parseFloat(t[1]), netH = parseFloat(t[2]), qty = parseInt(t[3]);
+                if (!netW || !netH || !qty) return;
 
-                const name = tokens[0] || "Деталь";
-                const netW = parseFloat(tokens[1]);   // чистый размер
-                const netH = parseFloat(tokens[2]);
-                const qty = parseInt(tokens[3]);
-                const edgeW = tokens[4] ? parseFloat(tokens[4]) : 0; // кромка по ширине
-                const edgeH = tokens[5] ? parseFloat(tokens[5]) : 0; // кромка по высоте
-
-                if (netW > 0 && netH > 0 && qty > 0) {
-                    const cutW = netW + edgeW * 2;
-                    const cutH = netH + edgeH * 2;
-
+                for (let i = 0; i < qty; i++) {
                     parts.push({
-                        name: name,
-                        netW: netW,
-                        netH: netH,
-                        cutW: cutW,
-                        cutH: cutH,
-                        edgeW: edgeW,
-                        edgeH: edgeH,
-                        qty: qty
+                        id: idx + '-' + i,
+                        name: t[0] || "Деталь",
+                        netW, netH,
+                        cutW: netW + (parseFloat(t[4])||0)*2,
+                        cutH: netH + (parseFloat(t[5])||0)*2,
+                        edgeW: parseFloat(t[4])||0,
+                        edgeH: parseFloat(t[5])||0,
+                        x: 0, y: 0,
+                        rotated: false,
+                        edgeVertical: true,
+                        edgeHorizontal: true
                     });
                 }
-            }
-
-            if (parts.length === 0) {
-                showError("❌ Не найдено ни одной корректной детали!");
-                return;
-            }
-
-            // Сортируем по площади (лучший раскрой)
-            parts.sort((a, b) => (b.cutW * b.cutH) - (a.cutW * a.cutH));
-
-            // === РАСЧЁТ КРОМКИ ===
-            let totalEdgeLength = 0;
-            parts.forEach(part => {
-                // Кромка по Ш (две стороны длиной netH)
-                if (part.edgeW > 0) totalEdgeLength += 2 * part.netH * part.qty;
-                // Кромка по В (две стороны длиной netW)
-                if (part.edgeH > 0) totalEdgeLength += 2 * part.netW * part.qty;
             });
-            const totalEdgeMeters = (totalEdgeLength / 1000).toFixed(2);
 
-            // Статистика
-            const totalArea = parts.reduce((sum, p) => sum + p.cutW * p.cutH * p.qty, 0);
-            const sheetArea = sheetW * sheetH;
-            const estSheets = Math.ceil(totalArea / sheetArea);
-            const efficiency = Math.round((totalArea / (sheetArea * estSheets)) * 100);
+            if (parts.length === 0) return showError("Нет деталей");
 
-            let html = `
-                <h2 style="color:#1e40af; margin-bottom:10px;">✅ Раскрой готов (с поворотом + кромка)</h2>
-                <p><strong>Лист:</strong> ${sheetW} × ${sheetH} мм • Пропил: ${kerf} мм</p>
-                
-                <div class="stats">
-                    <div class="stat-card">
-                        <strong>Эффективность:</strong><br>
-                        <span style="font-size:28px; color:#10b981;">${efficiency}%</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong>Примерное кол-во листов:</strong><br>
-                        <span style="font-size:28px; color:#1e40af;">${estSheets}</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong>Всего деталей:</strong><br>
-                        <span style="font-size:28px;">${parts.reduce((sum, p) => sum + p.qty, 0)} шт.</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong>Кромка всего:</strong><br>
-                        <span style="font-size:28px; color:#ca8a04;">${totalEdgeMeters} метров</span>
-                    </div>
-                </div>
+            allSheets = packIntoSheets(parts);
+            renderAllSheets();
+        }
 
-                <div class="edge-info">
-                    <strong>🟨 Кромочный материал:</strong> ${totalEdgeMeters} метров<br>
-                    <small>Кромка считается только по тем сторонам, где в строке указаны Кромка_Ш и Кромка_В > 0</small>
-                </div>
+        function packIntoSheets(parts) {
+            const sheets = [];
+            let currentSheet = { items: [] };
+            let x = 0, y = 0, rowH = 0;
 
-                <h3 style="margin:25px 0 10px 0;">Схема раскроя на листе</h3>
-                <canvas id="cuttingCanvas" width="860" height="560"></canvas>
-                
-                <p style="font-size:14px; color:#64748b; margin-top:10px;">
-                    🔄 Поворот включён • Жёлтый = повёрнутая деталь • Синяя толстая линия = сторона с кромкой
-                </p>
-            `;
+            parts.forEach(item => {
+                let w = item.cutW, h = item.cutH;
+                if (x + w > currentSheetW) {
+                    x = 0;
+                    y += rowH + currentKerf;
+                    rowH = 0;
+                }
+                if (y + h > currentSheetH) {
+                    sheets.push(currentSheet);
+                    currentSheet = { items: [] };
+                    x = 0; y = 0; rowH = 0;
+                }
+                item.x = x;
+                item.y = y;
+                currentSheet.items.push(item);
+                x += w + currentKerf;
+                rowH = Math.max(rowH, h);
+            });
+            if (currentSheet.items.length) sheets.push(currentSheet);
+            return sheets;
+        }
+
+        function renderAllSheets() {
+            let html = `<h2>✅ Раскрой готов — ${allSheets.length} лист${allSheets.length > 1 ? 'ов' : ''}</h2>
+                        <p class="info">🖱️ Клик по детали — поворот • Зажать и тащить — перемещение</p>`;
+
+            allSheets.forEach((sheet, i) => {
+                html += `
+                    <div class="sheet-header">ЛИСТ ${i + 1}</div>
+                    <canvas id="canvas-${i}" width="900" height="600"></canvas>
+                    <div class="manual-controls">
+                        <button onclick="resetSheet(${i})">Сбросить позиции листа</button>
+                    </div>`;
+            });
 
             document.getElementById('results').innerHTML = html;
 
-            setTimeout(() => {
-                drawCuttingPlan(sheetW, sheetH, kerf, parts, allowRotate);
-            }, 80);
+            allSheets.forEach((sheet, i) => {
+                const canvas = document.getElementById(`canvas-${i}`);
+                setupCanvasEvents(canvas, i);
+                drawSheet(i);
+            });
         }
 
-        function showError(msg) {
-            document.getElementById('results').innerHTML = `<div class="error-msg">${msg}</div>`;
+        function setupCanvasEvents(canvas, sheetIndex) {
+            let isDragging = false;
+            let offsetX, offsetY;
+
+            canvas.addEventListener('mousedown', e => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left - offsetCache) / scaleCache;
+                const mouseY = (e.clientY - rect.top - offsetCache) / scaleCache;
+
+                const sheet = allSheets[sheetIndex];
+                for (let item of sheet.items) {
+                    if (mouseX > item.x && mouseX < item.x + (item.rotated ? item.cutH : item.cutW) &&
+                        mouseY > item.y && mouseY < item.y + (item.rotated ? item.cutW : item.cutH)) {
+                        
+                        draggedItem = item;
+                        dragSheetIndex = sheetIndex;
+                        isDragging = true;
+                        offsetX = mouseX - item.x;
+                        offsetY = mouseY - item.y;
+                        canvas.style.cursor = 'grabbing';
+                        return;
+                    }
+                }
+            });
+
+            canvas.addEventListener('mousemove', e => {
+                if (!isDragging || !draggedItem) return;
+                const rect = canvas.getBoundingClientRect();
+                let newX = (e.clientX - rect.left - offsetCache) / scaleCache - offsetX;
+                let newY = (e.clientY - rect.top - offsetCache) / scaleCache - offsetY;
+
+                const w = draggedItem.rotated ? draggedItem.cutH : draggedItem.cutW;
+                const h = draggedItem.rotated ? draggedItem.cutW : draggedItem.cutH;
+
+                // Ограничения границ
+                newX = Math.max(0, Math.min(newX, currentSheetW - w));
+                newY = Math.max(0, Math.min(newY, currentSheetH - h));
+
+                draggedItem.x = Math.round(newX / 10) * 10; // прилипание к сетке 10 мм
+                draggedItem.y = Math.round(newY / 10) * 10;
+
+                drawSheet(dragSheetIndex);
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    draggedItem = null;
+                    dragSheetIndex = -1;
+                }
+            });
         }
 
-        function drawCuttingPlan(sheetW, sheetH, kerf, parts, allowRotate) {
-            const canvas = document.getElementById('cuttingCanvas');
+        function drawSheet(sheetIndex) {
+            const canvas = document.getElementById(`canvas-${sheetIndex}`);
+            if (!canvas) return;
             const ctx = canvas.getContext('2d');
+            const sheet = allSheets[sheetIndex];
             
-            const scale = Math.min(800 / sheetW, 520 / sheetH);
-            const offset = 30;
+            const scale = Math.min(840 / currentSheetW, 560 / currentSheetH);
+            scaleCache = scale;
+            offsetCache = 30;
 
-            canvas.width = sheetW * scale + offset * 2;
-            canvas.height = sheetH * scale + offset * 2 + 40;
+            canvas.width = currentSheetW * scale + offsetCache * 2;
+            canvas.height = currentSheetH * scale + offsetCache * 2 + 60;
 
             ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(offset, offset, sheetW * scale, sheetH * scale);
-            
+            ctx.fillRect(offsetCache, offsetCache, currentSheetW*scale, currentSheetH*scale);
             ctx.strokeStyle = '#1e40af';
-            ctx.lineWidth = 8;
-            ctx.strokeRect(offset, offset, sheetW * scale, sheetH * scale);
+            ctx.lineWidth = 10;
+            ctx.strokeRect(offsetCache, offsetCache, currentSheetW*scale, currentSheetH*scale);
 
             ctx.fillStyle = '#1e40af';
             ctx.font = '600 22px Inter';
             ctx.textAlign = 'center';
-            ctx.fillText('ЛИСТ 1 — Мастер раскроя PRO', canvas.width / 2, 22);
+            ctx.fillText(`ЛИСТ ${sheetIndex + 1}`, canvas.width/2, 25);
 
-            let x = offset;
-            let y = offset;
-            let rowMaxH = 0;
-            const colors = ['#1e40af', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-            let colorIdx = 0;
+            const colors = ['#1e40af', '#10b981', '#f59e0b', '#ef4444'];
 
-            for (let part of parts) {
-                for (let i = 0; i < part.qty; i++) {
-                    let pw = part.cutW * scale;
-                    let ph = part.cutH * scale;
-                    let isRotated = false;
-                    let edgeVertical = part.edgeW > 0;   // кромка по вертикальным сторонам
-                    let edgeHorizontal = part.edgeH > 0;
+            sheet.items.forEach((item, idx) => {
+                const w = item.rotated ? item.cutH : item.cutW;
+                const h = item.rotated ? item.cutW : item.cutH;
+                const px = offsetCache + item.x * scale;
+                const py = offsetCache + item.y * scale;
+                const pw = w * scale;
+                const ph = h * scale;
 
-                    // Проверка поворота
-                    if (allowRotate && (x + pw > sheetW * scale + offset - 8)) {
-                        const pwRot = part.cutH * scale;
-                        const phRot = part.cutW * scale;
-                        if (pwRot <= (sheetW * scale + offset - x)) {
-                            pw = pwRot;
-                            ph = phRot;
-                            isRotated = true;
-                            // При повороте меняем, какие стороны имеют кромку
-                            edgeVertical = part.edgeH > 0;
-                            edgeHorizontal = part.edgeW > 0;
-                        }
-                    }
+                ctx.fillStyle = item.rotated ? '#fbbf24' : colors[idx % colors.length];
+                ctx.fillRect(px, py, pw - 6, ph - 6);
+                ctx.strokeStyle = '#1f2937';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(px, py, pw - 6, ph - 6);
 
-                    // Переход на новую строку
-                    if (x + pw > sheetW * scale + offset - 8) {
-                        x = offset;
-                        y += rowMaxH + (kerf * scale);
-                        rowMaxH = 0;
-                    }
-
-                    if (y + ph > sheetH * scale + offset - 8) {
-                        ctx.fillStyle = '#b91c1c';
-                        ctx.font = '700 26px Inter';
-                        ctx.fillText('⚠️ СЛЕДУЮЩИЙ ЛИСТ →', offset + 30, y + 55);
-                        return;
-                    }
-
-                    // Рисуем деталь
-                    const color = colors[colorIdx % colors.length];
-                    ctx.fillStyle = isRotated ? '#fbbf24' : color;
-                    ctx.fillRect(x, y, pw - 4, ph - 4);
-                    
-                    ctx.strokeStyle = '#1e2937';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(x, y, pw - 4, ph - 4);
-
-                    // === ОТМЕЧАЕМ КРОМКУ ===
-                    ctx.strokeStyle = '#ca8a04'; // золотой цвет кромки
-                    ctx.lineWidth = 6;
-                    if (edgeVertical) {
-                        // левая и правая стороны
-                        ctx.beginPath();
-                        ctx.moveTo(x + 3, y + 3);
-                        ctx.lineTo(x + 3, y + ph - 3);
-                        ctx.moveTo(x + pw - 7, y + 3);
-                        ctx.lineTo(x + pw - 7, y + ph - 3);
-                        ctx.stroke();
-                    }
-                    if (edgeHorizontal) {
-                        // верхняя и нижняя стороны
-                        ctx.beginPath();
-                        ctx.moveTo(x + 3, y + 3);
-                        ctx.lineTo(x + pw - 3, y + 3);
-                        ctx.moveTo(x + 3, y + ph - 7);
-                        ctx.lineTo(x + pw - 3, y + ph - 7);
-                        ctx.stroke();
-                    }
-
-                    // Название + размеры
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = '600 14px Inter';
-                    ctx.textAlign = 'center';
-                    let label = part.name.length > 10 ? part.name.substring(0, 9) + '…' : part.name;
-                    if (isRotated) label += ' ↻';
-                    ctx.fillText(label, x + pw / 2, y + ph / 2 - 6);
-
-                    ctx.font = '500 11px Inter';
-                    ctx.fillText(`${Math.round(part.netW)}×${Math.round(part.netH)}`, x + pw / 2, y + ph / 2 + 12);
-
-                    rowMaxH = Math.max(rowMaxH, ph);
-                    x += pw + (kerf * scale);
+                // Кромка
+                ctx.strokeStyle = '#ca8a04';
+                ctx.lineWidth = 7;
+                if (item.edgeVertical) {
+                    ctx.beginPath();
+                    ctx.moveTo(px+5, py+5); ctx.lineTo(px+5, py+ph-5);
+                    ctx.moveTo(px+pw-11, py+5); ctx.lineTo(px+pw-11, py+ph-5);
+                    ctx.stroke();
                 }
-                colorIdx++;
+                if (item.edgeHorizontal) {
+                    ctx.beginPath();
+                    ctx.moveTo(px+5, py+5); ctx.lineTo(px+pw-5, py+5);
+                    ctx.moveTo(px+5, py+ph-11); ctx.lineTo(px+pw-5, py+ph-11);
+                    ctx.stroke();
+                }
+
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 15px Inter';
+                ctx.fillText(item.rotated ? item.name + ' ↻' : item.name, px + pw/2, py + ph/2 - 6);
+                ctx.font = '13px Inter';
+                ctx.fillText(`${Math.round(item.netW)}×${Math.round(item.netH)}`, px + pw/2, py + ph/2 + 18);
+            });
+        }
+
+        function resetSheet(sheetIndex) {
+            if (confirm("Сбросить позиции всех деталей на этом листе?")) {
+                allSheets[sheetIndex].items.forEach(item => { item.x = 0; item.y = 0; });
+                drawSheet(sheetIndex);
             }
+        }
+
+        function showError(msg) {
+            document.getElementById('results').innerHTML = `<div style="color:red; padding:20px; background:#fee2e2; border-radius:12px;">${msg}</div>`;
         }
 
         window.calculateCutting = calculateCutting;
