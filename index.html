@@ -135,7 +135,7 @@
         }
         .stats {
             display: flex;
-            gap: 20px;
+            gap: 15px;
             flex-wrap: wrap;
             margin-top: 15px;
         }
@@ -144,9 +144,17 @@
             padding: 14px 20px;
             border-radius: 12px;
             flex: 1;
-            min-width: 200px;
+            min-width: 180px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        
+        .edge-info {
+            background: #fefce8;
+            border: 2px solid #ca8a04;
+            color: #854d0e;
+            padding: 16px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
         @media print {
             .controls, .btn-group, h1 { display: none !important; }
             .container { box-shadow: none; padding: 10px; max-width: none; }
@@ -183,11 +191,8 @@
             <div class="options">
                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
                     <input type="checkbox" id="allowRotate" checked>
-                    <span style="font-weight:600;">✅ Разрешить поворот деталей на 90° (умный алгоритм)</span>
+                    <span style="font-weight:600;">✅ Разрешить поворот деталей на 90°</span>
                 </label>
-                <p style="font-size:13px; color:#64748b; margin:5px 0 0 28px;">
-                    Детали будут автоматически поворачиваться для максимально плотного раскроя
-                </p>
             </div>
 
             <div class="btn-group">
@@ -200,8 +205,8 @@
     </div>
 
     <script>
-        // ==================== МАСТЕР РАСКРОЯ PRO v3.0 ====================
-        // Полная версия с поддержкой поворота деталей 90°
+        // ==================== МАСТЕР РАСКРОЯ PRO v3.1 ====================
+        // Добавлена кромка: где кромковать + сколько метров нужно
 
         function calculateCutting() {
             const sheetW = parseFloat(document.getElementById('sheetW').value) || 0;
@@ -224,17 +229,24 @@
                 if (tokens.length < 4) continue;
 
                 const name = tokens[0] || "Деталь";
-                const w = parseFloat(tokens[1]);
-                const h = parseFloat(tokens[2]);
+                const netW = parseFloat(tokens[1]);   // чистый размер
+                const netH = parseFloat(tokens[2]);
                 const qty = parseInt(tokens[3]);
-                const edgeW = tokens[4] ? parseFloat(tokens[4]) : 0;
-                const edgeH = tokens[5] ? parseFloat(tokens[5]) : 0;
+                const edgeW = tokens[4] ? parseFloat(tokens[4]) : 0; // кромка по ширине
+                const edgeH = tokens[5] ? parseFloat(tokens[5]) : 0; // кромка по высоте
 
-                if (w > 0 && h > 0 && qty > 0) {
+                if (netW > 0 && netH > 0 && qty > 0) {
+                    const cutW = netW + edgeW * 2;
+                    const cutH = netH + edgeH * 2;
+
                     parts.push({
                         name: name,
-                        w: w + edgeW * 2,
-                        h: h + edgeH * 2,
+                        netW: netW,
+                        netH: netH,
+                        cutW: cutW,
+                        cutH: cutH,
+                        edgeW: edgeW,
+                        edgeH: edgeH,
                         qty: qty
                     });
                 }
@@ -246,17 +258,26 @@
             }
 
             // Сортируем по площади (лучший раскрой)
-            parts.sort((a, b) => (b.w * b.h) - (a.w * a.h));
+            parts.sort((a, b) => (b.cutW * b.cutH) - (a.cutW * a.cutH));
 
-            // Подсчёт статистики
-            const totalArea = parts.reduce((sum, p) => sum + p.w * p.h * p.qty, 0);
+            // === РАСЧЁТ КРОМКИ ===
+            let totalEdgeLength = 0;
+            parts.forEach(part => {
+                // Кромка по Ш (две стороны длиной netH)
+                if (part.edgeW > 0) totalEdgeLength += 2 * part.netH * part.qty;
+                // Кромка по В (две стороны длиной netW)
+                if (part.edgeH > 0) totalEdgeLength += 2 * part.netW * part.qty;
+            });
+            const totalEdgeMeters = (totalEdgeLength / 1000).toFixed(2);
+
+            // Статистика
+            const totalArea = parts.reduce((sum, p) => sum + p.cutW * p.cutH * p.qty, 0);
             const sheetArea = sheetW * sheetH;
             const estSheets = Math.ceil(totalArea / sheetArea);
             const efficiency = Math.round((totalArea / (sheetArea * estSheets)) * 100);
 
-            // Формируем результат
             let html = `
-                <h2 style="color:#1e40af; margin-bottom:10px;">✅ Раскрой готов (с поворотом)</h2>
+                <h2 style="color:#1e40af; margin-bottom:10px;">✅ Раскрой готов (с поворотом + кромка)</h2>
                 <p><strong>Лист:</strong> ${sheetW} × ${sheetH} мм • Пропил: ${kerf} мм</p>
                 
                 <div class="stats">
@@ -272,19 +293,27 @@
                         <strong>Всего деталей:</strong><br>
                         <span style="font-size:28px;">${parts.reduce((sum, p) => sum + p.qty, 0)} шт.</span>
                     </div>
+                    <div class="stat-card">
+                        <strong>Кромка всего:</strong><br>
+                        <span style="font-size:28px; color:#ca8a04;">${totalEdgeMeters} метров</span>
+                    </div>
                 </div>
 
-                <h3 style="margin:25px 0 10px 0;">Схема раскроя на листе (алгоритм с поворотом)</h3>
+                <div class="edge-info">
+                    <strong>🟨 Кромочный материал:</strong> ${totalEdgeMeters} метров<br>
+                    <small>Кромка считается только по тем сторонам, где в строке указаны Кромка_Ш и Кромка_В > 0</small>
+                </div>
+
+                <h3 style="margin:25px 0 10px 0;">Схема раскроя на листе</h3>
                 <canvas id="cuttingCanvas" width="860" height="560"></canvas>
                 
                 <p style="font-size:14px; color:#64748b; margin-top:10px;">
-                    🔄 Поворот включён • Детали отсортированы по размеру • Жёлтый = повёрнутые детали
+                    🔄 Поворот включён • Жёлтый = повёрнутая деталь • Синяя толстая линия = сторона с кромкой
                 </p>
             `;
 
             document.getElementById('results').innerHTML = html;
 
-            // Запускаем отрисовку
             setTimeout(() => {
                 drawCuttingPlan(sheetW, sheetH, kerf, parts, allowRotate);
             }, 80);
@@ -304,87 +333,109 @@
             canvas.width = sheetW * scale + offset * 2;
             canvas.height = sheetH * scale + offset * 2 + 40;
 
-            // Фон листа
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(offset, offset, sheetW * scale, sheetH * scale);
             
-            // Граница листа
             ctx.strokeStyle = '#1e40af';
             ctx.lineWidth = 8;
             ctx.strokeRect(offset, offset, sheetW * scale, sheetH * scale);
 
-            // Заголовок на холсте
             ctx.fillStyle = '#1e40af';
             ctx.font = '600 22px Inter';
             ctx.textAlign = 'center';
             ctx.fillText('ЛИСТ 1 — Мастер раскроя PRO', canvas.width / 2, 22);
 
-            let currentX = offset;
-            let currentY = offset;
-            let currentRowMaxH = 0;
+            let x = offset;
+            let y = offset;
+            let rowMaxH = 0;
             const colors = ['#1e40af', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
             let colorIdx = 0;
 
             for (let part of parts) {
                 for (let i = 0; i < part.qty; i++) {
-                    // Определяем ориентацию (с поворотом)
-                    let pw = part.w * scale;
-                    let ph = part.h * scale;
+                    let pw = part.cutW * scale;
+                    let ph = part.cutH * scale;
                     let isRotated = false;
+                    let edgeVertical = part.edgeW > 0;   // кромка по вертикальным сторонам
+                    let edgeHorizontal = part.edgeH > 0;
 
-                    const remaining = (sheetW * scale + offset) - currentX;
-
-                    if (allowRotate && pw > remaining + 5) {
-                        const pwRot = part.h * scale;
-                        const phRot = part.w * scale;
-                        if (pwRot <= remaining + 5) {
+                    // Проверка поворота
+                    if (allowRotate && (x + pw > sheetW * scale + offset - 8)) {
+                        const pwRot = part.cutH * scale;
+                        const phRot = part.cutW * scale;
+                        if (pwRot <= (sheetW * scale + offset - x)) {
                             pw = pwRot;
                             ph = phRot;
                             isRotated = true;
+                            // При повороте меняем, какие стороны имеют кромку
+                            edgeVertical = part.edgeH > 0;
+                            edgeHorizontal = part.edgeW > 0;
                         }
                     }
 
                     // Переход на новую строку
-                    if (currentX + pw > sheetW * scale + offset - 8) {
-                        currentX = offset;
-                        currentY += currentRowMaxH + (kerf * scale);
-                        currentRowMaxH = 0;
+                    if (x + pw > sheetW * scale + offset - 8) {
+                        x = offset;
+                        y += rowMaxH + (kerf * scale);
+                        rowMaxH = 0;
                     }
 
-                    // Если вылезаем за высоту листа
-                    if (currentY + ph > sheetH * scale + offset - 8) {
+                    if (y + ph > sheetH * scale + offset - 8) {
                         ctx.fillStyle = '#b91c1c';
                         ctx.font = '700 26px Inter';
-                        ctx.fillText('⚠️ СЛЕДУЮЩИЙ ЛИСТ →', offset + 30, currentY + 55);
+                        ctx.fillText('⚠️ СЛЕДУЮЩИЙ ЛИСТ →', offset + 30, y + 55);
                         return;
                     }
 
                     // Рисуем деталь
                     const color = colors[colorIdx % colors.length];
                     ctx.fillStyle = isRotated ? '#fbbf24' : color;
-                    ctx.fillRect(currentX, currentY, pw - 4, ph - 4);
+                    ctx.fillRect(x, y, pw - 4, ph - 4);
                     
                     ctx.strokeStyle = '#1e2937';
                     ctx.lineWidth = 3;
-                    ctx.strokeRect(currentX, currentY, pw - 4, ph - 4);
+                    ctx.strokeRect(x, y, pw - 4, ph - 4);
 
-                    // Название детали
+                    // === ОТМЕЧАЕМ КРОМКУ ===
+                    ctx.strokeStyle = '#ca8a04'; // золотой цвет кромки
+                    ctx.lineWidth = 6;
+                    if (edgeVertical) {
+                        // левая и правая стороны
+                        ctx.beginPath();
+                        ctx.moveTo(x + 3, y + 3);
+                        ctx.lineTo(x + 3, y + ph - 3);
+                        ctx.moveTo(x + pw - 7, y + 3);
+                        ctx.lineTo(x + pw - 7, y + ph - 3);
+                        ctx.stroke();
+                    }
+                    if (edgeHorizontal) {
+                        // верхняя и нижняя стороны
+                        ctx.beginPath();
+                        ctx.moveTo(x + 3, y + 3);
+                        ctx.lineTo(x + pw - 3, y + 3);
+                        ctx.moveTo(x + 3, y + ph - 7);
+                        ctx.lineTo(x + pw - 3, y + ph - 7);
+                        ctx.stroke();
+                    }
+
+                    // Название + размеры
                     ctx.fillStyle = '#ffffff';
-                    ctx.font = '600 15px Inter';
+                    ctx.font = '600 14px Inter';
                     ctx.textAlign = 'center';
-                    let label = part.name.length > 9 ? part.name.substring(0, 8) + '…' : part.name;
+                    let label = part.name.length > 10 ? part.name.substring(0, 9) + '…' : part.name;
                     if (isRotated) label += ' ↻';
-                    ctx.fillText(label, currentX + pw / 2, currentY + ph / 2 + 6);
+                    ctx.fillText(label, x + pw / 2, y + ph / 2 - 6);
 
-                    // Обновляем позицию
-                    currentRowMaxH = Math.max(currentRowMaxH, ph);
-                    currentX += pw + (kerf * scale);
+                    ctx.font = '500 11px Inter';
+                    ctx.fillText(`${Math.round(part.netW)}×${Math.round(part.netH)}`, x + pw / 2, y + ph / 2 + 12);
+
+                    rowMaxH = Math.max(rowMaxH, ph);
+                    x += pw + (kerf * scale);
                 }
                 colorIdx++;
             }
         }
 
-        // Делаем функцию глобальной для кнопки
         window.calculateCutting = calculateCutting;
     </script>
 </body>
