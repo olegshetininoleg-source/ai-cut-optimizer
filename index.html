@@ -1,391 +1,118 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мастер раскроя PRO</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-        
-        body { 
-            font-family: 'Inter', system-ui, sans-serif; 
-            background: linear-gradient(135deg, #f0f2f5, #e8eaf0); 
-            padding: 20px; 
-            color: #1f2937; 
-            margin: 0;
-        }
-        .container { 
-            max-width: 960px; 
-            margin: 0 auto; 
-            background: white; 
-            padding: 35px; 
-            border-radius: 20px; 
-            box-shadow: 0 20px 40px rgba(0,0,0,0.12); 
-        }
-        h1 { 
-            color: #1e40af; 
-            text-align: center; 
-            margin: 0 0 30px 0; 
-            font-size: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-        }
-        .logo { font-size: 32px; }
-        
-        .inputs-row {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-        .input-group {
-            flex: 1;
-        }
-        label { 
-            display: block; 
-            font-size: 14px; 
-            font-weight: 600; 
-            color: #4b5563; 
-            margin-bottom: 6px;
-        }
-        input, textarea { 
-            width: 100%; 
-            padding: 14px 16px; 
-            border: 2px solid #e5e7eb; 
-            border-radius: 12px; 
-            font-size: 17px; 
-            transition: all 0.3s;
-        }
-        input:focus, textarea:focus { 
-            border-color: #1e40af; 
-            box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.15);
-            outline: none;
-        }
-        
-        .parts-label {
-            font-size: 14px;
-            font-weight: 600;
-            color: #4b5563;
-            margin: 25px 0 8px 0;
-        }
-        
-        textarea {
-            min-height: 130px;
-            resize: vertical;
-            font-family: monospace;
-            line-height: 1.5;
-        }
-        
-        .options {
-            margin: 20px 0;
-            padding: 15px;
-            background: #f8fafc;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-        }
-        
-        .btn-group { 
-            display: flex; 
-            gap: 15px; 
-            margin-top: 25px;
-        }
-        button { 
-            flex: 1; 
-            padding: 16px; 
-            border: none; 
-            border-radius: 12px; 
-            cursor: pointer; 
-            font-weight: 600; 
-            font-size: 17px; 
-            transition: all 0.2s;
-        }
-        button:active { transform: scale(0.97); }
-        .calc-btn { 
-            background: #1e40af; 
-            color: white; 
-        }
-        .calc-btn:hover { background: #1a3a9e; }
-        .print-btn { 
-            background: #10b981; 
-            color: white; 
-        }
-        .print-btn:hover { background: #0f9c6e; }
-        
-        #results { 
-            margin-top: 35px; 
-            padding-top: 25px; 
-            border-top: 2px dashed #e5e7eb; 
-        }
-        .error-msg { 
-            background: #fee2e2; 
-            color: #b91c1c; 
-            padding: 18px; 
-            border-radius: 12px; 
-            border: 1px solid #fecaca;
-        }
-        canvas { 
-            border: 3px solid #1e40af; 
-            border-radius: 16px; 
-            box-shadow: 0 10px 30px rgba(30, 64, 175, 0.15);
-            background: #f8fafc;
-            display: block;
-            margin: 20px auto;
-            max-width: 100%;
-        }
-        .stats {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            margin-top: 15px;
-        }
-        .stat-card {
-            background: #f8fafc;
-            padding: 14px 20px;
-            border-radius: 12px;
-            flex: 1;
-            min-width: 200px;
-        }
-        
-        @media print {
-            .controls, .btn-group, h1 { display: none !important; }
-            .container { box-shadow: none; padding: 10px; max-width: none; }
-            canvas { border: 2px solid #333; }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1><span class="logo">🛠️</span> Мастер раскроя PRO</h1>
-        
-        <div class="controls">
-            <div class="inputs-row">
-                <div class="input-group">
-                    <label>Ширина листа (мм)</label>
-                    <input type="number" id="sheetW" value="2440">
-                </div>
-                <div class="input-group">
-                    <label>Высота листа (мм)</label>
-                    <input type="number" id="sheetH" value="1220">
-                </div>
-                <div class="input-group">
-                    <label>Пропил (мм)</label>
-                    <input type="number" id="kerf" value="4">
-                </div>
-            </div>
+<script>
+// ==================== МАСТЕР РАСКРОЯ PRO v2 ====================
 
-            <div class="parts-label">
-                Детали (Название, Ш, В, Кол-во, Кромка_Ш, Кромка_В):
-            </div>
-            <textarea id="partsInput" rows="5">Полка, 800, 400, 4, 1, 2
-Боковина, 1200, 300, 2, 2, 2</textarea>
+function calculateCutting() {
+    const sheetW = parseFloat(document.getElementById('sheetW').value) || 0;
+    const sheetH = parseFloat(document.getElementById('sheetH').value) || 0;
+    const kerf = parseFloat(document.getElementById('kerf').value) || 0;
 
-            <div class="options">
-                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                    <input type="checkbox" id="allowRotate" checked>
-                    <span style="font-weight:600;">✅ Разрешить поворот деталей на 90° (умный алгоритм)</span>
-                </label>
-                <p style="font-size:13px; color:#64748b; margin:5px 0 0 28px;">
-                    Детали будут автоматически поворачиваться для максимально плотного раскроя
-                </p>
-            </div>
+    const input = document.getElementById('partsInput').value.trim();
 
-            <div class="btn-group">
-                <button class="calc-btn" onclick="calculateCutting()">Рассчитать карту</button>
-                <button class="print-btn" onclick="window.print()">Печать схемы</button>
-            </div>
-        </div>
+    if (sheetW <= 0 || sheetH <= 0) {
+        showError("Укажите ширину и высоту листа!");
+        return;
+    }
 
-        <div id="results"></div>
-    </div>
+    const lines = input.split('\n').filter(l => l.trim() !== '');
+    const parts = [];
 
-    <script>
-        // ==================== МАСТЕР РАСКРОЯ PRO v3.0 ====================
-        // Полная версия с поддержкой поворота деталей 90°
+    for (let line of lines) {
+        const tokens = line.split(',').map(t => t.trim());
+        if (tokens.length < 4) continue;
 
-        function calculateCutting() {
-            const sheetW = parseFloat(document.getElementById('sheetW').value) || 0;
-            const sheetH = parseFloat(document.getElementById('sheetH').value) || 0;
-            const kerf = parseFloat(document.getElementById('kerf').value) || 0;
-            const allowRotate = document.getElementById('allowRotate').checked;
+        const name = tokens[0];
+        const w = parseFloat(tokens[1]);
+        const h = parseFloat(tokens[2]);
+        const qty = parseInt(tokens[3]);
+        const edgeW = tokens[4] ? parseFloat(tokens[4]) : 0;
+        const edgeH = tokens[5] ? parseFloat(tokens[5]) : 0;
 
-            const input = document.getElementById('partsInput').value.trim();
+        if (w > 0 && h > 0 && qty > 0) {
+            parts.push({
+                name: name || "Деталь",
+                w: w + edgeW * 2,
+                h: h + edgeH * 2,
+                qty: qty
+            });
+        }
+    }
 
-            if (sheetW <= 0 || sheetH <= 0) {
-                showError("❌ Укажите ширину и высоту листа!");
-                return;
+    if (parts.length === 0) {
+        showError("Не найдено ни одной корректной детали!");
+        return;
+    }
+
+    document.getElementById('results').innerHTML = `
+        <h2>✅ Расчёт выполнен</h2>
+        <p><strong>Лист:</strong> ${sheetW} × ${sheetH} мм, пропил ${kerf} мм</p>
+        <canvas id="cuttingCanvas" width="820" height="520" style="max-width:100%; border:2px solid #ddd; border-radius:8px;"></canvas>
+        <p><strong>Детали:</strong></p>
+        <ul>${parts.map(p => `<li>${p.name} — ${p.w}×${p.h} мм × ${p.qty} шт.</li>`).join('')}</ul>
+    `;
+
+    // Рисуем схему через небольшую задержку
+    setTimeout(() => {
+        drawOnCanvas(sheetW, sheetH, kerf, parts);
+    }, 50);
+}
+
+function showError(msg) {
+    document.getElementById('results').innerHTML = `<div style="color:red; background:#ffe6e6; padding:15px; border-radius:8px;">${msg}</div>`;
+}
+
+function drawOnCanvas(sheetW, sheetH, kerf, parts) {
+    const canvas = document.getElementById('cuttingCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const scale = Math.min(800 / sheetW, 500 / sheetH);
+    const offset = 10;
+
+    canvas.width = sheetW * scale + offset * 2;
+    canvas.height = sheetH * scale + offset * 2;
+
+    // Фон листа
+    ctx.fillStyle = '#f8f9fa';
+    ctx.strokeStyle = '#2c3e50';
+    ctx.lineWidth = 4;
+    ctx.fillRect(offset, offset, sheetW*scale, sheetH*scale);
+    ctx.strokeRect(offset, offset, sheetW*scale, sheetH*scale);
+
+    let x = offset;
+    let y = offset;
+    const colors = ['#1e88e5', '#43a047', '#f9a825', '#e53935', '#8e24aa'];
+
+    parts.forEach((part, index) => {
+        const pw = part.w * scale;
+        const ph = part.h * scale;
+        const color = colors[index % colors.length];
+
+        for (let i = 0; i < part.qty; i++) {
+            if (x + pw > sheetW*scale + offset - 5) {
+                x = offset;
+                y += ph + kerf * scale;
+            }
+            if (y + ph > sheetH*scale + offset - 5) {
+                y = offset + (sheetH*scale * 0.6); // переход на "следующий лист"
+                x = offset;
             }
 
-            const lines = input.split('\n').filter(l => l.trim() !== '');
-            let parts = [];
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, pw - 3, ph - 3);
+            ctx.strokeStyle = '#263238';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, pw - 3, ph - 3);
 
-            for (let line of lines) {
-                const tokens = line.split(',').map(t => t.trim());
-                if (tokens.length < 4) continue;
-
-                const name = tokens[0] || "Деталь";
-                const w = parseFloat(tokens[1]);
-                const h = parseFloat(tokens[2]);
-                const qty = parseInt(tokens[3]);
-                const edgeW = tokens[4] ? parseFloat(tokens[4]) : 0;
-                const edgeH = tokens[5] ? parseFloat(tokens[5]) : 0;
-
-                if (w > 0 && h > 0 && qty > 0) {
-                    parts.push({
-                        name: name,
-                        w: w + edgeW * 2,
-                        h: h + edgeH * 2,
-                        qty: qty
-                    });
-                }
-            }
-
-            if (parts.length === 0) {
-                showError("❌ Не найдено ни одной корректной детали!");
-                return;
-            }
-
-            // Сортируем по площади (лучший раскрой)
-            parts.sort((a, b) => (b.w * b.h) - (a.w * a.h));
-
-            // Подсчёт статистики
-            const totalArea = parts.reduce((sum, p) => sum + p.w * p.h * p.qty, 0);
-            const sheetArea = sheetW * sheetH;
-            const estSheets = Math.ceil(totalArea / sheetArea);
-            const efficiency = Math.round((totalArea / (sheetArea * estSheets)) * 100);
-
-            // Формируем результат
-            let html = `
-                <h2 style="color:#1e40af; margin-bottom:10px;">✅ Раскрой готов (с поворотом)</h2>
-                <p><strong>Лист:</strong> ${sheetW} × ${sheetH} мм • Пропил: ${kerf} мм</p>
-                
-                <div class="stats">
-                    <div class="stat-card">
-                        <strong>Эффективность:</strong><br>
-                        <span style="font-size:28px; color:#10b981;">${efficiency}%</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong>Примерное кол-во листов:</strong><br>
-                        <span style="font-size:28px; color:#1e40af;">${estSheets}</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong>Всего деталей:</strong><br>
-                        <span style="font-size:28px;">${parts.reduce((sum, p) => sum + p.qty, 0)} шт.</span>
-                    </div>
-                </div>
-
-                <h3 style="margin:25px 0 10px 0;">Схема раскроя на листе (алгоритм с поворотом)</h3>
-                <canvas id="cuttingCanvas" width="860" height="560"></canvas>
-                
-                <p style="font-size:14px; color:#64748b; margin-top:10px;">
-                    🔄 Поворот включён • Детали отсортированы по размеру • Жёлтый = повёрнутые детали
-                </p>
-            `;
-
-            document.getElementById('results').innerHTML = html;
-
-            // Запускаем отрисовку
-            setTimeout(() => {
-                drawCuttingPlan(sheetW, sheetH, kerf, parts, allowRotate);
-            }, 80);
-        }
-
-        function showError(msg) {
-            document.getElementById('results').innerHTML = `<div class="error-msg">${msg}</div>`;
-        }
-
-        function drawCuttingPlan(sheetW, sheetH, kerf, parts, allowRotate) {
-            const canvas = document.getElementById('cuttingCanvas');
-            const ctx = canvas.getContext('2d');
-            
-            const scale = Math.min(800 / sheetW, 520 / sheetH);
-            const offset = 30;
-
-            canvas.width = sheetW * scale + offset * 2;
-            canvas.height = sheetH * scale + offset * 2 + 40;
-
-            // Фон листа
-            ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(offset, offset, sheetW * scale, sheetH * scale);
-            
-            // Граница листа
-            ctx.strokeStyle = '#1e40af';
-            ctx.lineWidth = 8;
-            ctx.strokeRect(offset, offset, sheetW * scale, sheetH * scale);
-
-            // Заголовок на холсте
-            ctx.fillStyle = '#1e40af';
-            ctx.font = '600 22px Inter';
+            // Название
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 13px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('ЛИСТ 1 — Мастер раскроя PRO', canvas.width / 2, 22);
+            ctx.fillText(part.name.substring(0, 10), x + pw/2, y + ph/2 + 5);
 
-            let currentX = offset;
-            let currentY = offset;
-            let currentRowMaxH = 0;
-            const colors = ['#1e40af', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-            let colorIdx = 0;
-
-            for (let part of parts) {
-                for (let i = 0; i < part.qty; i++) {
-                    // Определяем ориентацию (с поворотом)
-                    let pw = part.w * scale;
-                    let ph = part.h * scale;
-                    let isRotated = false;
-
-                    const remaining = (sheetW * scale + offset) - currentX;
-
-                    if (allowRotate && pw > remaining + 5) {
-                        const pwRot = part.h * scale;
-                        const phRot = part.w * scale;
-                        if (pwRot <= remaining + 5) {
-                            pw = pwRot;
-                            ph = phRot;
-                            isRotated = true;
-                        }
-                    }
-
-                    // Переход на новую строку
-                    if (currentX + pw > sheetW * scale + offset - 8) {
-                        currentX = offset;
-                        currentY += currentRowMaxH + (kerf * scale);
-                        currentRowMaxH = 0;
-                    }
-
-                    // Если вылезаем за высоту листа
-                    if (currentY + ph > sheetH * scale + offset - 8) {
-                        ctx.fillStyle = '#b91c1c';
-                        ctx.font = '700 26px Inter';
-                        ctx.fillText('⚠️ СЛЕДУЮЩИЙ ЛИСТ →', offset + 30, currentY + 55);
-                        return;
-                    }
-
-                    // Рисуем деталь
-                    const color = colors[colorIdx % colors.length];
-                    ctx.fillStyle = isRotated ? '#fbbf24' : color;
-                    ctx.fillRect(currentX, currentY, pw - 4, ph - 4);
-                    
-                    ctx.strokeStyle = '#1e2937';
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(currentX, currentY, pw - 4, ph - 4);
-
-                    // Название детали
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = '600 15px Inter';
-                    ctx.textAlign = 'center';
-                    let label = part.name.length > 9 ? part.name.substring(0, 8) + '…' : part.name;
-                    if (isRotated) label += ' ↻';
-                    ctx.fillText(label, currentX + pw / 2, currentY + ph / 2 + 6);
-
-                    // Обновляем позицию
-                    currentRowMaxH = Math.max(currentRowMaxH, ph);
-                    currentX += pw + (kerf * scale);
-                }
-                colorIdx++;
-            }
+            x += pw + kerf * scale;
         }
+    });
+}
 
-        // Делаем функцию глобальной для кнопки
-        window.calculateCutting = calculateCutting;
-    </script>
-</body>
-</html>
+// Делаем функцию доступной глобально
+window.calculateCutting = calculateCutting;
+</script>
