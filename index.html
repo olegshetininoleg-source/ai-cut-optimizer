@@ -57,7 +57,6 @@
             const sheetW = parseFloat(document.getElementById('sheetW').value) || 2440;
             const sheetH = parseFloat(document.getElementById('sheetH').value) || 1220;
             const kerf = parseFloat(document.getElementById('kerf').value) || 0;
-            const allowRotate = true; // всегда включено
 
             const input = document.getElementById('partsInput').value.trim();
             let parts = [];
@@ -89,18 +88,19 @@
 
             if (parts.length === 0) return alert("Нет деталей!");
 
-            // === УЛУЧШЕННЫЙ АЛГОРИТМ С НЕСКОЛЬКИМИ ЛИСТАМИ ===
+            // === ПЛОТНЫЙ АЛГОРИТМ С НЕСКОЛЬКИМИ ЛИСТАМИ ===
+            parts.sort((a, b) => (b.w * b.h) - (a.w * a.h));
+
             const sheets = [];
             let currentSheet = [];
             let x = 10, y = 10, rowMaxH = 0;
-
-            parts.sort((a, b) => (b.w * b.h) - (a.w * a.h)); // большие сначала
 
             for (let p of parts) {
                 let pw = p.w;
                 let ph = p.h;
                 let rotated = false;
 
+                // Пробуем повернуть, если так лучше влезет
                 if (x + pw > sheetW - 20 && p.h < p.w) {
                     rotated = true;
                     pw = p.h;
@@ -121,54 +121,57 @@
                     rowMaxH = 0;
                 }
 
-                currentSheet.push({ ...p, rotated, x, y });
+                currentSheet.push({ ...p, rotated, x: x, y: y });
                 rowMaxH = Math.max(rowMaxH, ph);
                 x += pw + kerf;
             }
-            if (currentSheet.length) sheets.push(currentSheet);
+            if (currentSheet.length > 0) sheets.push(currentSheet);
 
-            // === ОТРИСОВКА ===
+            // === ФОРМИРОВАНИЕ РЕЗУЛЬТАТА ===
             let html = `
                 <h2 style="color:#1e40af;">✅ Раскрой готов</h2>
-                <div class="stats">
-                    <div class="stat-card"><strong>Листов:</strong><br><span style="font-size:32px;color:#1e40af;">${sheets.length}</span></div>
-                    <div class="stat-card"><strong>Деталей:</strong><br><span style="font-size:32px;">${parts.length}</span></div>
-                    <div class="stat-card"><strong>Общая длина кромки:</strong><br><span style="font-size:32px;color:#10b981;">${(sheets.length * (sheetW + sheetH) * 2 / 1000).toFixed(1)} м</span></div>
+                <div style="display:flex; gap:20px; flex-wrap:wrap; margin:15px 0;">
+                    <div style="background:#f8fafc; padding:15px 20px; border-radius:12px; flex:1;">
+                        <strong>Листов использовано:</strong><br>
+                        <span style="font-size:32px; color:#1e40af;">${sheets.length}</span>
+                    </div>
+                    <div style="background:#f8fafc; padding:15px 20px; border-radius:12px; flex:1;">
+                        <strong>Общая длина кромки:</strong><br>
+                        <span style="font-size:32px; color:#10b981;">${(sheets.length * (sheetW + sheetH) * 2 / 1000).toFixed(1)} метров</span>
+                    </div>
                 </div>
             `;
 
-            sheets.forEach((sheetParts, index) => {
-                html += `<div class="sheet-title">ЛИСТ ${index + 1} — ${sheetW} × ${sheetH} мм</div>`;
-                html += `<canvas id="canvas${index}" width="${sheetW * 0.85 + 100}" height="${sheetH * 0.85 + 100}"></canvas>`;
+            sheets.forEach((sheetParts, i) => {
+                html += `<div class="sheet-title">ЛИСТ ${i+1} — ${sheetW} × ${sheetH} мм</div>`;
+                html += `<canvas id="canvas${i}" width="${sheetW*0.85 + 100}" height="${sheetH*0.85 + 100}"></canvas>`;
             });
 
             document.getElementById('results').innerHTML = html;
 
             // Рисуем каждый лист
-            sheets.forEach((sheetParts, index) => {
+            sheets.forEach((sheetParts, i) => {
                 setTimeout(() => {
-                    const canvas = document.getElementById(`canvas${index}`);
+                    const canvas = document.getElementById(`canvas${i}`);
                     const ctx = canvas.getContext('2d');
                     const scale = Math.min((canvas.width - 100) / sheetW, (canvas.height - 100) / sheetH);
 
-                    // Фон и границы листа
                     ctx.fillStyle = '#f8fafc';
-                    ctx.fillRect(50, 50, sheetW * scale, sheetH * scale);
+                    ctx.fillRect(50, 50, sheetW*scale, sheetH*scale);
                     ctx.strokeStyle = '#1e40af';
                     ctx.lineWidth = 12;
-                    ctx.strokeRect(50, 50, sheetW * scale, sheetH * scale);
+                    ctx.strokeRect(50, 50, sheetW*scale, sheetH*scale);
 
                     // Размеры листа
                     ctx.fillStyle = '#1e40af';
                     ctx.font = '600 18px Inter';
                     ctx.textAlign = 'center';
-                    ctx.fillText(`${sheetW} мм`, 50 + sheetW * scale / 2, 35);
+                    ctx.fillText(`${sheetW} мм`, 50 + sheetW*scale/2, 35);
                     ctx.save();
-                    ctx.rotate(-Math.PI / 2);
-                    ctx.fillText(`${sheetH} мм`, -50 - sheetH * scale / 2, 35);
+                    ctx.rotate(-Math.PI/2);
+                    ctx.fillText(`${sheetH} мм`, -50 - sheetH*scale/2, 35);
                     ctx.restore();
 
-                    // Детали
                     sheetParts.forEach(p => {
                         const px = p.x * scale + 50;
                         const py = p.y * scale + 50;
@@ -199,7 +202,7 @@
                         if (p.rotated) label += ' ↻';
                         ctx.fillText(label, px + pw/2, py + 24);
                     });
-                }, index * 50);
+                }, i * 30);
             });
         }
 
