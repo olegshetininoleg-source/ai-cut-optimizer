@@ -50,7 +50,7 @@
         </div>
 
         <div id="results"></div>
-        <div class="info">🖱️ Перетаскивай детали • Клик/тап по детали = поворот 90° • Размер на каждой стороне</div>
+        <div class="info">🖱️ Перетаскивай и поворачивай внутри листа • Кромка видна как зазор • Листы добавляются только по необходимости</div>
     </div>
 
     <script>
@@ -101,13 +101,12 @@
 
             if (parts.length === 0) return alert("Нет деталей!");
 
-            autoPlaceWithBetterPacking();
+            autoPlaceOptimized();
             renderAllSheets();
         }
 
-        function autoPlaceWithBetterPacking() {
-            // Улучшенная сортировка — сначала самые большие детали
-            parts.sort((a, b) => (Math.max(b.w, b.h) * Math.max(b.originalW, b.originalH)) - (Math.max(a.w, a.h) * Math.max(a.originalW, a.originalH)));
+        function autoPlaceOptimized() {
+            parts.sort((a, b) => (b.w * b.h) - (a.w * a.h)); // по площади
 
             let currentSheet = 0;
             let x = 10, y = 10, rowMaxH = 0;
@@ -117,24 +116,21 @@
                 let ph = p.h;
                 p.rotated = false;
 
-                // Пробуем оба варианта ориентации и выбираем лучший
-                const fitNormal = (x + pw <= sheetW - 20);
-                const fitRotated = (p.h < p.w) && (x + p.h <= sheetW - 20);
-
-                if (!fitNormal && fitRotated) {
+                // Пробуем повернуть, если так лучше влезет
+                if (x + pw > sheetW - 20 && p.h < p.w) {
                     p.rotated = true;
                     pw = p.h;
                     ph = p.w;
                 }
 
-                // Если не влезает в строку — новая строка
+                // Новая строка, если не влезает
                 if (x + pw > sheetW - 20) {
                     x = 10;
                     y += rowMaxH + kerf;
                     rowMaxH = 0;
                 }
 
-                // Если не влезает по высоте — новый лист
+                // Новый лист, если не влезает по высоте
                 if (y + ph > sheetH - 20) {
                     currentSheet++;
                     x = 10;
@@ -170,27 +166,25 @@
                 resultsDiv.appendChild(canvas);
 
                 drawSheet(canvas, sheetParts, s);
-                addInteractivity(canvas, s);   // ← добавляем перетаскивание и поворот для каждого листа
+                addInteractivity(canvas, s);
             }
         }
 
         function drawSheet(canvas, sheetParts, sheetNum) {
             const ctx = canvas.getContext('2d');
-            scale = Math.min( (canvas.width - offset*2) / sheetW , (canvas.height - offset*2 - 40) / sheetH );
+            scale = Math.min((canvas.width - offset*2) / sheetW, (canvas.height - offset*2 - 40) / sheetH);
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             const drawW = sheetW * scale;
             const drawH = sheetH * scale;
 
-            // Лист
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(offset, offset, drawW, drawH);
             ctx.strokeStyle = '#1e40af';
             ctx.lineWidth = 12;
             ctx.strokeRect(offset, offset, drawW, drawH);
 
-            // Размеры листа
             ctx.fillStyle = '#1e40af';
             ctx.font = '600 18px Inter';
             ctx.textAlign = 'center';
@@ -206,7 +200,6 @@
                 const pw = p.w * scale;
                 const ph = p.h * scale;
 
-                // Деталь
                 ctx.fillStyle = p.rotated ? '#fbbf24' : '#1e40af';
                 ctx.fillRect(px + 4, py + 4, pw - 12, ph - 12);
 
@@ -214,30 +207,22 @@
                 ctx.lineWidth = 5;
                 ctx.strokeRect(px + 4, py + 4, pw - 12, ph - 12);
 
-                // Пропил (чёткий зазор)
                 ctx.strokeStyle = 'rgba(255,255,255,0.9)';
                 ctx.lineWidth = 3;
                 ctx.strokeRect(px + 6, py + 6, pw - 16, ph - 16);
 
-                // РАЗМЕР НА КАЖДОЙ СТОРОНЕ
+                // Размер на каждой стороне
                 ctx.fillStyle = 'white';
                 ctx.font = '700 15px Inter';
                 ctx.textAlign = 'center';
-
-                // Центр (основной размер)
-                ctx.fillText(`${Math.round(p.originalW)}×${Math.round(p.originalH)}`, px + pw/2, py + ph/2 + 6);
-
-                // Нижняя сторона — ширина
-                ctx.fillText(`${Math.round(p.originalW)}`, px + pw/2, py + ph - 12);
-
-                // Левая сторона — высота (повёрнутый текст)
+                ctx.fillText(`${Math.round(p.originalW)}×${Math.round(p.originalH)}`, px + pw/2, py + ph/2 + 6); // центр
+                ctx.fillText(`${Math.round(p.originalW)}`, px + pw/2, py + ph - 12); // низ
                 ctx.save();
                 ctx.translate(px + 14, py + ph/2);
                 ctx.rotate(-Math.PI/2);
-                ctx.fillText(`${Math.round(p.originalH)}`, 0, 0);
+                ctx.fillText(`${Math.round(p.originalH)}`, 0, 0); // левая сторона
                 ctx.restore();
 
-                // Название
                 ctx.font = '600 13px Inter';
                 let label = p.name.length > 12 ? p.name.substring(0,11)+'…' : p.name;
                 if (p.rotated) label += ' ↻';
@@ -245,7 +230,6 @@
             });
         }
 
-        // ====================== ИНТЕРАКТИВ ДЛЯ КАЖДОГО ЛИСТА ======================
         function addInteractivity(canvas, currentSheet) {
             let selectedPart = null;
             let isDragging = false;
@@ -253,10 +237,7 @@
 
             function getPos(e) {
                 const rect = canvas.getBoundingClientRect();
-                return {
-                    x: (e.clientX || e.touches[0].clientX) - rect.left,
-                    y: (e.clientY || e.touches[0].clientY) - rect.top
-                };
+                return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
             }
 
             function hitTest(mx, my) {
@@ -273,15 +254,13 @@
             function checkOverlap(moved, sheetParts) {
                 for (let p of sheetParts) {
                     if (p.id === moved.id) continue;
-                    if (!(moved.x + moved.w <= p.x || moved.x >= p.x + p.w ||
-                          moved.y + moved.h <= p.y || moved.y >= p.y + p.h)) return true;
+                    if (!(moved.x + moved.w <= p.x || moved.x >= p.x + p.w || moved.y + moved.h <= p.y || moved.y >= p.y + p.h)) return true;
                 }
                 return false;
             }
 
-            // Drag
-            canvas.addEventListener('mousedown', e => startMove(e));
-            canvas.addEventListener('touchstart', e => startMove(e));
+            canvas.addEventListener('mousedown', startMove);
+            canvas.addEventListener('touchstart', startMove);
 
             function startMove(e) {
                 e.preventDefault();
@@ -294,8 +273,8 @@
                 dragStartY = part.y;
             }
 
-            canvas.addEventListener('mousemove', e => doMove(e));
-            canvas.addEventListener('touchmove', e => doMove(e));
+            canvas.addEventListener('mousemove', doMove);
+            canvas.addEventListener('touchmove', doMove);
 
             function doMove(e) {
                 if (!isDragging || !selectedPart) return;
@@ -304,7 +283,6 @@
                 selectedPart.x = (pos.x - offset) / scale - selectedPart.w / 2;
                 selectedPart.y = (pos.y - offset) / scale - selectedPart.h / 2;
 
-                // Не даём вылезти за лист
                 if (selectedPart.x < 0) selectedPart.x = 0;
                 if (selectedPart.y < 0) selectedPart.y = 0;
                 if (selectedPart.x + selectedPart.w > sheetW) selectedPart.x = sheetW - selectedPart.w;
@@ -313,8 +291,8 @@
                 redrawCurrentSheet(canvas, currentSheet);
             }
 
-            canvas.addEventListener('mouseup', () => endMove());
-            canvas.addEventListener('touchend', () => endMove());
+            canvas.addEventListener('mouseup', endMove);
+            canvas.addEventListener('touchend', endMove);
 
             function endMove() {
                 if (!selectedPart) return;
@@ -328,13 +306,11 @@
                 redrawCurrentSheet(canvas, currentSheet);
             }
 
-            // Поворот по клику
             canvas.addEventListener('click', e => {
                 if (isDragging) return;
                 const pos = getPos(e);
                 const part = hitTest(pos.x, pos.y);
                 if (!part) return;
-
                 const temp = part.w;
                 part.w = part.h;
                 part.h = temp;
@@ -350,16 +326,15 @@
 
         function resetLayout() {
             if (parts.length > 0) {
-                autoPlaceWithBetterPacking();
+                autoPlaceOptimized();
                 renderAllSheets();
             }
         }
 
-        // Кнопки
         document.getElementById('calcBtn').addEventListener('click', calculateCutting);
         document.getElementById('resetBtn').addEventListener('click', resetLayout);
 
-        console.log("✅ Мастер раскроя PRO v7 — исправлено всё");
+        console.log("✅ Мастер раскроя PRO v8 — плотный раскрой");
     </script>
 </body>
 </html>
