@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мастер раскроя PRO - SoftHunterPro</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { font-family: 'Inter', system-ui, sans-serif; background: linear-gradient(135deg, #f0f2f5, #e8eaf0); padding: 20px; margin: 0; color: #1f2937; }
         .container { max-width: 1000px; margin: 0 auto; background: white; padding: 35px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
         h1 { color: #1e40af; text-align: center; margin: 0 0 30px; font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 12px; }
@@ -21,12 +21,13 @@
         button { flex: 1; min-width: 180px; padding: 16px; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 17px; }
         .calc-btn { background: #1e40af; color: white; }
         .print-btn { background: #10b981; color: white; }
-        canvas { border: 5px solid #1e40af; border-radius: 16px; background: #f8fafc; display: block; margin: 20px auto; max-width: 100%; box-shadow: 0 10px 30px rgba(30,64,175,0.25); }
-        .sheet-title { text-align: center; font-size: 18px; font-weight: 600; color: #1e40af; margin: 30px 0 8px 0; }
-        .info { font-size: 14px; color: #64748b; text-align: center; margin: 15px 0; }
+        canvas { display: block; margin: 20px auto; max-width: 100%; }
+        .sheet-title { text-align: center; font-size: 18px; font-weight: 700; color: #1e40af; margin: 40px 0 10px 0; }
         .stats { display: flex; gap: 20px; flex-wrap: wrap; margin: 15px 0; }
         .stat-card { background: #f8fafc; padding: 14px 20px; border-radius: 12px; flex: 1; min-width: 200px; border: 1px solid #e5e7eb; }
-        @media print { .controls, .btn-group, h1 { display: none !important; } .container { box-shadow: none; padding: 0; max-width: 100%; } canvas { border: 2px solid #333; box-shadow: none; } }
+        .legend { font-size: 14px; color: #4b5563; background: #f1f5f9; padding: 15px; border-radius: 10px; margin-top: 20px; }
+        .legend span { display: inline-block; width: 16px; height: 16px; vertical-align: middle; margin-right: 8px; border-radius: 4px; }
+        @media print { .controls, .btn-group, h1, .legend { display: none !important; } .container { box-shadow: none; padding: 0; max-width: 100%; } }
     </style>
 </head>
 <body>
@@ -41,8 +42,9 @@
             </div>
 
             <div class="parts-label">Детали (Название, Ширина, Высота, Кол-во, Кромка_Ш, Кромка_В):</div>
-            <textarea id="partsInput" rows="5">Полка, 800, 400, 4, 1, 2
-Боковина, 1200, 300, 2, 2, 2</textarea>
+            <textarea id="partsInput" rows="5" placeholder="Пример: Полка, 800, 400, 4, 1, 2">Полка, 800, 400, 4, 1, 2
+Боковина, 1200, 300, 2, 2, 2
+Дно, 800, 500, 1, 1, 1</textarea>
 
             <div class="btn-group">
                 <button class="calc-btn" onclick="calculateCutting()">Рассчитать карту</button>
@@ -63,7 +65,6 @@
             let parts = [];
             let totalEdgeMm = 0;
 
-            // 1. Сбор и анализ деталей
             input.split('\n').forEach(line => {
                 if (!line.trim()) return;
                 const t = line.split(',').map(x => x.trim());
@@ -77,44 +78,26 @@
                 const edgeH = parseInt(t[5]) || 0; 
 
                 if (origW > 0 && origH > 0) {
-                    // Подсчет общей длины кромки
                     totalEdgeMm += (origW * edgeW + origH * edgeH) * qty;
-
                     for (let i = 0; i < qty; i++) {
-                        parts.push({
-                            name: name,
-                            w: origW,
-                            h: origH,
-                            originalW: origW,
-                            originalH: origH,
-                            edgeW: edgeW,
-                            edgeH: edgeH
-                        });
+                        parts.push({ name: name, w: origW, h: origH, originalW: origW, originalH: origH, edgeW: edgeW, edgeH: edgeH });
                     }
                 }
             });
 
             if (parts.length === 0) return alert("Ошибка: Нет корректных деталей для расчета!");
 
-            // 2. Умная сортировка: от самых больших к маленьким (по максимальной стороне)
             parts.sort((a, b) => Math.max(b.w, b.h) - Math.max(a.w, a.h));
-
-            // 3. Алгоритм полочной упаковки (Shelf Bin Packing)
             const sheets = [];
 
             for (let p of parts) {
                 let placed = false;
-                // Пробуем два варианта: как есть и с поворотом на 90 градусов
-                let orientations = p.w !== p.h 
-                    ? [ {w: p.w, h: p.h, rot: false}, {w: p.h, h: p.w, rot: true} ] 
-                    : [ {w: p.w, h: p.h, rot: false} ];
+                let orientations = p.w !== p.h ? [ {w: p.w, h: p.h, rot: false}, {w: p.h, h: p.w, rot: true} ] : [ {w: p.w, h: p.h, rot: false} ];
 
                 for (let sheet of sheets) {
-                    // Ищем место на существующих полках этого листа
                     for (let shelf of sheet.shelves) {
                         for (let ori of orientations) {
                             if (shelf.x + ori.w <= sheetW && shelf.y + ori.h <= sheetH) {
-                                // Деталь помещается по высоте полки или это первая деталь расширяющая полку
                                 if (shelf.h === 0 || ori.h <= shelf.h) {
                                     sheet.parts.push({ ...p, x: shelf.x, y: shelf.y, w: ori.w, h: ori.h, rotated: ori.rot });
                                     shelf.x += ori.w + kerf;
@@ -127,7 +110,6 @@
                     }
                     if (placed) break;
 
-                    // Если не влезло на полки, пытаемся создать новую полку на ЭТОМ ЖЕ листе
                     if (!placed) {
                         for (let ori of orientations) {
                             let lastShelf = sheet.shelves[sheet.shelves.length - 1];
@@ -143,115 +125,126 @@
                     if (placed) break;
                 }
 
-                // Если деталь так и не влезла никуда — берем НОВЫЙ ЛИСТ
                 if (!placed) {
                     let ori = orientations[0];
-                    // Если деталь шире листа, принудительно поворачиваем
                     if (ori.w > sheetW || ori.h > sheetH) {
                         if (orientations[1] && orientations[1].w <= sheetW && orientations[1].h <= sheetH) ori = orientations[1];
                     }
-                    
-                    let newSheet = { 
-                        shelves: [{ y: 0, h: ori.h, x: ori.w + kerf }], 
-                        parts: [{ ...p, x: 0, y: 0, w: ori.w, h: ori.h, rotated: ori.rot }] 
-                    };
+                    let newSheet = { shelves: [{ y: 0, h: ori.h, x: ori.w + kerf }], parts: [{ ...p, x: 0, y: 0, w: ori.w, h: ori.h, rotated: ori.rot }] };
                     sheets.push(newSheet);
                 }
             }
 
-            // 4. Отрисовка результатов
             const totalEdgeMeters = (totalEdgeMm / 1000).toFixed(2);
 
             let html = `
-                <h2 style="color:#1e40af;">✅ Раскрой завершен</h2>
                 <div class="stats">
-                    <div class="stat-card">
-                        <strong>Листов потребуется:</strong><br>
-                        <span style="font-size:32px; color:#1e40af; font-weight:bold;">${sheets.length}</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong>Общая длина кромки:</strong><br>
-                        <span style="font-size:32px; color:#ef4444; font-weight:bold;">${totalEdgeMeters} м</span>
-                    </div>
-                    <div class="stat-card">
-                        <strong>Всего деталей:</strong><br>
-                        <span style="font-size:32px; color:#10b981; font-weight:bold;">${parts.length} шт.</span>
-                    </div>
+                    <div class="stat-card"><strong>Листов:</strong><br><span style="font-size:32px; color:#1e40af; font-weight:bold;">${sheets.length}</span></div>
+                    <div class="stat-card"><strong>Длина кромки:</strong><br><span style="font-size:32px; color:#ef4444; font-weight:bold;">${totalEdgeMeters} м</span></div>
+                    <div class="stat-card"><strong>Деталей:</strong><br><span style="font-size:32px; color:#10b981; font-weight:bold;">${parts.length} шт.</span></div>
                 </div>
-                <p style="font-size:14px; color:#64748b;">🔄 Желтые детали — повернуты алгоритмом для плотности. <span style="color:#ef4444; font-weight:bold;">Красные линии</span> — места нанесения кромки.</p>
+                <div class="legend">
+                    <span style="background:#bfdbfe; border: 1px solid #1e2937;"></span> — Обычная деталь &nbsp;&nbsp;
+                    <span style="background:#fef08a; border: 1px solid #1e2937;"></span> — Повернута на 90° &nbsp;&nbsp;
+                    <span style="background:#ef4444; width: 30px; height: 4px;"></span> — Место нанесения кромки
+                </div>
             `;
 
             sheets.forEach((sheetParts, i) => {
                 html += `<div class="sheet-title">ЛИСТ ${i+1} — ${sheetW} × ${sheetH} мм</div>`;
-                html += `<canvas id="canvas${i}" width="${sheetW}" height="${sheetH}"></canvas>`;
+                html += `<canvas id="canvas${i}"></canvas>`;
             });
 
             document.getElementById('results').innerHTML = html;
 
-            // Рендер чертежей с кромками
             sheets.forEach((sheet, i) => {
                 setTimeout(() => {
                     const canvas = document.getElementById(`canvas${i}`);
                     const ctx = canvas.getContext('2d');
                     
-                    // Масштабируем холст для красивого отображения в браузере
-                    const displayWidth = 800;
-                    const scale = displayWidth / sheetW;
+                    const displayWidth = 850; 
+                    const padding = 40; // Отступ от краев холста до самого листа материала
+                    const scale = (displayWidth - padding * 2) / sheetW;
+                    
+                    canvas.width = displayWidth;
+                    canvas.height = (sheetH * scale) + padding * 2;
                     canvas.style.width = '100%';
                     canvas.style.maxWidth = displayWidth + 'px';
-                    canvas.height = sheetH * scale;
 
-                    ctx.scale(scale, scale);
+                    // 1. Фон всего холста (белый стол)
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    // Фон и рамка листа
-                    ctx.fillStyle = '#f8fafc';
-                    ctx.fillRect(0, 0, sheetW, sheetH);
-                    ctx.strokeStyle = '#1e40af';
-                    ctx.lineWidth = 4 / scale;
-                    ctx.strokeRect(0, 0, sheetW, sheetH);
+                    // 2. Отрисовка самого ЛДСП листа с легкой тенью
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+                    ctx.shadowBlur = 15;
+                    ctx.shadowOffsetX = 5;
+                    ctx.shadowOffsetY = 5;
+                    ctx.fillStyle = '#f3f4f6'; // Цвет листа (светло-серый)
+                    ctx.fillRect(padding, padding, sheetW * scale, sheetH * scale);
+                    
+                    // Сбрасываем тень для деталей и рисуем жесткую границу листа
+                    ctx.shadowColor = 'transparent';
+                    ctx.strokeStyle = '#9ca3af';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(padding, padding, sheetW * scale, sheetH * scale);
 
-                    // Рисуем детали
+                    // 3. Рисуем детали
                     sheet.parts.forEach(p => {
-                        const px = p.x;
-                        const py = p.y;
-                        const pw = p.w;
-                        const ph = p.h;
+                        const px = padding + (p.x * scale);
+                        const py = padding + (p.y * scale);
+                        const pw = p.w * scale;
+                        const ph = p.h * scale;
 
                         // Заливка детали
-                        ctx.fillStyle = p.rotated ? '#fde047' : '#bfdbfe'; // Желтый или синий
+                        ctx.fillStyle = p.rotated ? '#fef08a' : '#bae6fd'; 
                         ctx.fillRect(px, py, pw, ph);
 
-                        // Рамка детали
-                        ctx.strokeStyle = '#1e2937';
-                        ctx.lineWidth = 2 / scale;
+                        // Граница детали
+                        ctx.strokeStyle = '#1f2937';
+                        ctx.lineWidth = 1;
                         ctx.strokeRect(px, py, pw, ph);
 
-                        // === РИСУЕМ КРОМКУ (КРАСНЫЕ ЛИНИИ) ===
-                        ctx.strokeStyle = '#ef4444'; // Красный цвет кромки
-                        ctx.lineWidth = 6 / scale; 
+                        // === КРОМКА (Жирная красная линия) ===
+                        ctx.strokeStyle = '#ef4444'; 
+                        ctx.lineWidth = 5; 
                         
-                        // Если деталь повернута, кромки меняются местами
                         let drawEdgeW = p.rotated ? p.edgeH : p.edgeW;
                         let drawEdgeH = p.rotated ? p.edgeW : p.edgeH;
 
-                        // Горизонтальные кромки (Ширина)
+                        // Вверх/Низ
                         if (drawEdgeW > 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + pw, py); ctx.stroke(); }
                         if (drawEdgeW > 1) { ctx.beginPath(); ctx.moveTo(px, py + ph); ctx.lineTo(px + pw, py + ph); ctx.stroke(); }
-                        // Вертикальные кромки (Высота)
+                        // Лево/Право
                         if (drawEdgeH > 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + ph); ctx.stroke(); }
                         if (drawEdgeH > 1) { ctx.beginPath(); ctx.moveTo(px + pw, py); ctx.lineTo(px + pw, py + ph); ctx.stroke(); }
 
-                        // Текст размеров
+                        // === ТЕКСТ ===
+                        // Название детали (по центру)
                         ctx.fillStyle = '#111827';
-                        ctx.font = `bold ${Math.max(14 / scale, 12)}px Inter`;
+                        ctx.font = '600 13px Inter';
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
-                        ctx.fillText(`${p.originalW}×${p.originalH}`, px + pw/2, py + ph/2 - (6/scale));
-
-                        // Имя детали
-                        ctx.font = `${Math.max(12 / scale, 10)}px Inter`;
                         let label = p.name.length > 10 ? p.name.substring(0,9)+'…' : p.name;
-                        ctx.fillText(label, px + pw/2, py + ph/2 + (8/scale));
+                        ctx.fillText(label, px + pw/2, py + ph/2 - 6);
+
+                        // Размер (Ширина) - внизу детали
+                        ctx.font = '500 12px Inter';
+                        ctx.fillStyle = '#4b5563';
+                        if (ph > 40) {
+                            ctx.fillText(p.originalW, px + pw/2, py + ph - 12);
+                        } else {
+                            ctx.fillText(p.originalW, px + pw/2, py + ph/2 + 8);
+                        }
+
+                        // Размер (Высота) - слева детали, повернутый
+                        if (pw > 40) {
+                            ctx.save();
+                            ctx.translate(px + 12, py + ph/2);
+                            ctx.rotate(-Math.PI/2);
+                            ctx.fillText(p.originalH, 0, 0);
+                            ctx.restore();
+                        }
                     });
                 }, i * 30);
             });
