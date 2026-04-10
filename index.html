@@ -69,4 +69,229 @@
         const canvas = document.getElementById('cuttingCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Главная
+        // Главная функция расчёта
+        function calculateCutting() {
+            try {
+                sheetW = parseFloat(document.getElementById('sheetW').value) || 2440;
+                sheetH = parseFloat(document.getElementById('sheetH').value) || 1220;
+                kerf = parseFloat(document.getElementById('kerf').value) || 4;
+
+                const input = document.getElementById('partsInput').value.trim();
+                if (!input) {
+                    alert("Введите список деталей!");
+                    return;
+                }
+
+                const lines = input.split('\n').filter(l => l.trim() !== '');
+                parts = [];
+
+                for (let line of lines) {
+                    const t = line.split(',').map(x => x.trim());
+                    if (t.length < 4) continue;
+                    const name = t[0] || "Деталь";
+                    const w = parseFloat(t[1]);
+                    const h = parseFloat(t[2]);
+                    const qty = parseInt(t[3]);
+                    const edgeW = t[4] ? parseFloat(t[4]) : 0;
+                    const edgeH = t[5] ? parseFloat(t[5]) : 0;
+
+                    if (w > 0 && h > 0 && qty > 0) {
+                        for (let i = 0; i < qty; i++) {
+                            parts.push({
+                                id: Date.now() + i,
+                                name: name,
+                                baseW: w + edgeW * 2,
+                                baseH: h + edgeH * 2,
+                                w: w + edgeW * 2,
+                                h: h + edgeH * 2,
+                                x: 0,
+                                y: 0,
+                                rotated: false
+                            });
+                        }
+                    }
+                }
+
+                if (parts.length === 0) {
+                    alert("Не удалось прочитать детали! Проверь формат.");
+                    return;
+                }
+
+                autoPlaceParts();
+                redraw();
+                console.log("✅ Раскрой выполнен, деталей:", parts.length);
+            } catch (e) {
+                console.error(e);
+                alert("Ошибка при расчёте: " + e.message);
+            }
+        }
+
+        function autoPlaceParts() {
+            parts.sort((a, b) => (b.baseW * b.baseH) - (a.baseW * a.baseH));
+            let x = 10, y = 10, rowMaxH = 0;
+
+            for (let p of parts) {
+                let pw = p.baseW;
+                let ph = p.baseH;
+                let rotated = false;
+
+                if (x + pw > sheetW - 10) {
+                    if (p.baseH < p.baseW) {
+                        rotated = true;
+                        pw = p.baseH;
+                        ph = p.baseW;
+                    }
+                }
+
+                if (x + pw > sheetW - 10) {
+                    x = 10;
+                    y += rowMaxH + kerf;
+                    rowMaxH = 0;
+                }
+
+                p.x = x;
+                p.y = y;
+                p.w = pw;
+                p.h = ph;
+                p.rotated = rotated;
+                rowMaxH = Math.max(rowMaxH, ph);
+                x += pw + kerf;
+            }
+        }
+
+        function resetLayout() {
+            if (parts.length > 0) autoPlaceParts();
+            redraw();
+        }
+
+        function redraw() {
+            scale = Math.min(800 / sheetW, 500 / sheetH);
+            canvas.width = sheetW * scale + offsetX * 2;
+            canvas.height = sheetH * scale + offsetY * 2 + 80;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Лист
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(offsetX, offsetY, sheetW * scale, sheetH * scale);
+            ctx.strokeStyle = '#1e40af';
+            ctx.lineWidth = 8;
+            ctx.strokeRect(offsetX, offsetY, sheetW * scale, sheetH * scale);
+
+            // Детали
+            for (let p of parts) {
+                const px = p.x * scale + offsetX;
+                const py = p.y * scale + offsetY;
+                const pw = p.w * scale;
+                const ph = p.h * scale;
+
+                ctx.fillStyle = p.rotated ? '#fbbf24' : '#1e40af';
+                ctx.fillRect(px, py, pw - 4, ph - 4);
+
+                ctx.strokeStyle = '#1e2937';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(px, py, pw - 4, ph - 4);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '600 15px Inter';
+                ctx.textAlign = 'center';
+                let label = p.name.length > 9 ? p.name.substring(0,8)+'…' : p.name;
+                if (p.rotated) label += ' ↻';
+                ctx.fillText(label, px + pw/2, py + ph/2 + 6);
+            }
+        }
+
+        // === Интерактив (перетаскивание + поворот) ===
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left,
+                y: (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top
+            };
+        }
+
+        function hitTest(mx, my) {
+            for (let i = parts.length-1; i >= 0; i--) {
+                const p = parts[i];
+                const px = p.x * scale + offsetX;
+                const py = p.y * scale + offsetY;
+                if (mx > px && mx < px + p.w*scale && my > py && my < py + p.h*scale) return p;
+            }
+            return null;
+        }
+
+        // Drag & Drop + Touch
+        let isDragging = false;
+        let selectedPart = null;
+        let startX, startY;
+
+        canvas.addEventListener('mousedown', startMove);
+        canvas.addEventListener('touchstart', startMove);
+
+        function startMove(e) {
+            e.preventDefault();
+            const pos = getPos(e);
+            const part = hitTest(pos.x, pos.y);
+            if (!part) return;
+
+            selectedPart = part;
+            isDragging = true;
+            startX = part.x;
+            startY = part.y;
+        }
+
+        canvas.addEventListener('mousemove', move);
+        canvas.addEventListener('touchmove', move);
+
+        function move(e) {
+            if (!isDragging || !selectedPart) return;
+            e.preventDefault();
+            const pos = getPos(e);
+            selectedPart.x = (pos.x - offsetX) / scale - selectedPart.w / 2;
+            selectedPart.y = (pos.y - offsetY) / scale - selectedPart.h / 2;
+
+            // границы листа
+            if (selectedPart.x < 0) selectedPart.x = 0;
+            if (selectedPart.y < 0) selectedPart.y = 0;
+            if (selectedPart.x + selectedPart.w > sheetW) selectedPart.x = sheetW - selectedPart.w;
+            if (selectedPart.y + selectedPart.h > sheetH) selectedPart.y = sheetH - selectedPart.h;
+
+            redraw();
+        }
+
+        canvas.addEventListener('mouseup', endMove);
+        canvas.addEventListener('touchend', endMove);
+
+        function endMove() {
+            if (!selectedPart) return;
+            isDragging = false;
+            selectedPart = null;
+            redraw();
+        }
+
+        // Поворот по клику
+        canvas.addEventListener('click', function(e) {
+            const pos = getPos(e);
+            const part = hitTest(pos.x, pos.y);
+            if (!part) return;
+
+            // Поворот
+            const temp = part.w;
+            part.w = part.h;
+            part.h = temp;
+            part.rotated = !part.rotated;
+
+            redraw();
+        });
+
+        // Делаем функции глобальными
+        window.calculateCutting = calculateCutting;
+        window.resetLayout = resetLayout;
+
+        // Автозапуск при загрузке
+        window.onload = function() {
+            calculateCutting();
+        };
+    </script>
+</body>
+</html>
