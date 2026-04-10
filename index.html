@@ -18,13 +18,12 @@
         .parts-label { font-size: 14px; font-weight: 600; color: #4b5563; margin: 25px 0 8px 0; }
         textarea { min-height: 130px; resize: vertical; font-family: monospace; }
         .btn-group { display: flex; gap: 15px; margin: 25px 0; flex-wrap: wrap; }
-        button { flex: 1; min-width: 180px; padding: 16px; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 17px; transition: 0.2s; }
+        button { flex: 1; min-width: 180px; padding: 16px; border: none; border-radius: 12px; cursor: pointer; font-weight: 600; font-size: 17px; }
         .calc-btn { background: #1e40af; color: white; }
-        .calc-btn:hover { background: #1a3a9e; }
         .reset-btn { background: #64748b; color: white; }
         .print-btn { background: #10b981; color: white; }
-        canvas { border: 3px solid #1e40af; border-radius: 16px; background: #f8fafc; display: block; margin: 20px auto; max-width: 100%; box-shadow: 0 10px 30px rgba(30,64,175,0.2); cursor: grab; }
-        .info { font-size: 14px; color: #64748b; text-align: center; margin: 10px 0; }
+        canvas { border: 4px solid #1e40af; border-radius: 16px; background: #f8fafc; display: block; margin: 20px auto; max-width: 100%; box-shadow: 0 10px 30px rgba(30,64,175,0.25); cursor: grab; }
+        .info { font-size: 14px; color: #64748b; text-align: center; margin: 15px 0; }
     </style>
 </head>
 <body>
@@ -51,7 +50,7 @@
 
         <div id="results">
             <canvas id="cuttingCanvas" width="860" height="560"></canvas>
-            <div class="info">🖱️ Перетаскивай детали • Клик/тап по детали = поворот 90°</div>
+            <div class="info">🖱️ Перетаскивай детали • Клик/тап по детали = поворот 90° • Размеры показаны на деталях</div>
         </div>
     </div>
 
@@ -59,31 +58,24 @@
         let parts = [];
         let sheetW = 2440, sheetH = 1220, kerf = 4;
         let scale = 1;
-        const offsetX = 30, offsetY = 30;
+        const offsetX = 40, offsetY = 40;
         let selectedPart = null;
         let isDragging = false;
+        let dragStartX, dragStartY;
 
         const canvas = document.getElementById('cuttingCanvas');
         const ctx = canvas.getContext('2d');
 
-        // ====================== ОСНОВНЫЕ ФУНКЦИИ ======================
         function calculateCutting() {
-            console.log("Кнопка нажата - начинаем расчёт");
-
             sheetW = parseFloat(document.getElementById('sheetW').value) || 2440;
             sheetH = parseFloat(document.getElementById('sheetH').value) || 1220;
             kerf = parseFloat(document.getElementById('kerf').value) || 4;
 
             const input = document.getElementById('partsInput').value.trim();
-            if (!input) {
-                alert("Введите хотя бы одну деталь!");
-                return;
-            }
-
             parts = [];
-            const lines = input.split('\n');
 
-            lines.forEach((line, index) => {
+            const lines = input.split('\n');
+            lines.forEach((line, idx) => {
                 if (!line.trim()) return;
                 const t = line.split(',').map(x => x.trim());
                 if (t.length < 4) return;
@@ -98,7 +90,7 @@
                 if (w > 0 && h > 0) {
                     for (let i = 0; i < qty; i++) {
                         parts.push({
-                            id: index * 100 + i,
+                            id: idx*100 + i,
                             name: name,
                             baseW: w + edgeW*2,
                             baseH: h + edgeH*2,
@@ -113,17 +105,16 @@
             });
 
             if (parts.length === 0) {
-                alert("Не удалось прочитать детали. Проверь формат через запятую.");
+                alert("Не удалось прочитать детали!");
                 return;
             }
 
             autoPlaceParts();
             redraw();
-            console.log(`✅ Успешно размещено ${parts.length} деталей`);
         }
 
         function autoPlaceParts() {
-            parts.sort((a,b) => (b.baseW*b.baseH) - (a.baseW*a.baseH));
+            parts.sort((a,b) => (b.baseW * b.baseH) - (a.baseW * a.baseH));
             let x = 10, y = 10, rowMaxH = 0;
 
             for (let p of parts) {
@@ -131,12 +122,10 @@
                 let ph = p.baseH;
                 let rotated = false;
 
-                if (x + pw > sheetW - 20) {
-                    if (p.baseH < p.baseW) {
-                        rotated = true;
-                        pw = p.baseH;
-                        ph = p.baseW;
-                    }
+                if (x + pw > sheetW - 20 && p.baseH < p.baseW) {
+                    rotated = true;
+                    pw = p.baseH;
+                    ph = p.baseW;
                 }
 
                 if (x + pw > sheetW - 20) {
@@ -156,36 +145,57 @@
         }
 
         function redraw() {
-            scale = Math.min(800 / sheetW, 500 / sheetH);
-            canvas.width = sheetW * scale + offsetX*2;
-            canvas.height = sheetH * scale + offsetY*2 + 80;
+            scale = Math.min(820 / sheetW, 520 / sheetH);
+            canvas.width = sheetW * scale + offsetX * 2;
+            canvas.height = sheetH * scale + offsetY * 2 + 60;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // Лист
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(offsetX, offsetY, sheetW*scale, sheetH*scale);
             ctx.strokeStyle = '#1e40af';
-            ctx.lineWidth = 8;
+            ctx.lineWidth = 10;
             ctx.strokeRect(offsetX, offsetY, sheetW*scale, sheetH*scale);
 
+            // Размеры листа
+            ctx.fillStyle = '#1e40af';
+            ctx.font = '500 16px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${sheetW} мм`, canvas.width/2, offsetY - 12);
+            ctx.save();
+            ctx.rotate(-Math.PI/2);
+            ctx.fillText(`${sheetH} мм`, -canvas.height/2 + 20, offsetX - 12);
+            ctx.restore();
+
+            // Детали
             parts.forEach(p => {
                 const px = p.x * scale + offsetX;
                 const py = p.y * scale + offsetY;
                 const pw = p.w * scale;
                 const ph = p.h * scale;
 
+                // Заливка
                 ctx.fillStyle = p.rotated ? '#fbbf24' : '#1e40af';
-                ctx.fillRect(px, py, pw-4, ph-4);
-                ctx.strokeStyle = '#1e2937';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(px, py, pw-4, ph-4);
+                ctx.fillRect(px, py, pw - 6, ph - 6);
 
+                // Обводка
+                ctx.strokeStyle = '#1e2937';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(px, py, pw - 6, ph - 6);
+
+                // Размеры
                 ctx.fillStyle = 'white';
-                ctx.font = '600 15px Inter';
+                ctx.font = '600 14px Inter';
                 ctx.textAlign = 'center';
-                let label = p.name.length > 9 ? p.name.substring(0,8) + '…' : p.name;
+                const sizeText = `${Math.round(p.w)}×${Math.round(p.h)}`;
+                ctx.fillText(sizeText, px + pw/2, py + ph/2 + 5);
+
+                // Название
+                ctx.font = '600 13px Inter';
+                let label = p.name.length > 10 ? p.name.substring(0,9) + '…' : p.name;
                 if (p.rotated) label += ' ↻';
-                ctx.fillText(label, px + pw/2, py + ph/2 + 6);
+                ctx.fillText(label, px + pw/2, py + 22);
             });
         }
 
@@ -194,16 +204,90 @@
             redraw();
         }
 
-        // ====================== ПРИВЯЗКА КНОПОК ======================
+        // ====================== ПЕРЕТАСКИВАНИЕ И ПОВОРОТ ======================
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: (e.clientX || e.touches[0].clientX) - rect.left,
+                y: (e.clientY || e.touches[0].clientY) - rect.top
+            };
+        }
+
+        function hitTest(mx, my) {
+            for (let i = parts.length - 1; i >= 0; i--) {
+                const p = parts[i];
+                const px = p.x * scale + offsetX;
+                const py = p.y * scale + offsetY;
+                const pw = p.w * scale;
+                const ph = p.h * scale;
+                if (mx > px && mx < px + pw && my > py && my < py + ph) return p;
+            }
+            return null;
+        }
+
+        canvas.addEventListener('mousedown', startDrag);
+        canvas.addEventListener('touchstart', startDrag);
+
+        function startDrag(e) {
+            e.preventDefault();
+            const pos = getPos(e);
+            const part = hitTest(pos.x, pos.y);
+            if (!part) return;
+
+            selectedPart = part;
+            isDragging = true;
+            dragStartX = part.x;
+            dragStartY = part.y;
+        }
+
+        canvas.addEventListener('mousemove', drag);
+        canvas.addEventListener('touchmove', drag);
+
+        function drag(e) {
+            if (!isDragging || !selectedPart) return;
+            e.preventDefault();
+            const pos = getPos(e);
+
+            selectedPart.x = (pos.x - offsetX) / scale - selectedPart.w / 2;
+            selectedPart.y = (pos.y - offsetY) / scale - selectedPart.h / 2;
+
+            // Ограничение по краям листа
+            if (selectedPart.x < 0) selectedPart.x = 0;
+            if (selectedPart.y < 0) selectedPart.y = 0;
+            if (selectedPart.x + selectedPart.w > sheetW) selectedPart.x = sheetW - selectedPart.w;
+            if (selectedPart.y + selectedPart.h > sheetH) selectedPart.y = sheetH - selectedPart.h;
+
+            redraw();
+        }
+
+        canvas.addEventListener('mouseup', endDrag);
+        canvas.addEventListener('touchend', endDrag);
+
+        function endDrag() {
+            isDragging = false;
+            selectedPart = null;
+            redraw();
+        }
+
+        // Поворот по клику
+        canvas.addEventListener('click', (e) => {
+            if (isDragging) return;
+            const pos = getPos(e);
+            const part = hitTest(pos.x, pos.y);
+            if (!part) return;
+
+            const temp = part.w;
+            part.w = part.h;
+            part.h = temp;
+            part.rotated = !part.rotated;
+            redraw();
+        });
+
+        // Привязка кнопок
         document.getElementById('calcBtn').addEventListener('click', calculateCutting);
         document.getElementById('resetBtn').addEventListener('click', resetLayout);
 
-        // Автозапуск при загрузке
-        window.onload = () => {
-            calculateCutting();
-        };
-
-        console.log("Скрипт успешно загружен");
+        console.log("Мастер раскроя PRO загружен");
     </script>
 </body>
 </html>
