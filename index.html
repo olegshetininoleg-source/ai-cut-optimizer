@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мастер раскроя PRO</title>
+    <title>Мастер раскроя PRO - SoftHunterPro</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
         body { font-family: 'Inter', system-ui, sans-serif; background: linear-gradient(135deg, #f0f2f5, #e8eaf0); padding: 20px; margin: 0; color: #1f2937; }
@@ -13,7 +13,7 @@
         .inputs-row { display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap; }
         .input-group { flex: 1; min-width: 200px; }
         label { display: block; font-size: 14px; font-weight: 600; color: #4b5563; margin-bottom: 6px; }
-        input, textarea { width: 100%; padding: 14px 16px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 17px; }
+        input, textarea { width: 100%; padding: 14px 16px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 17px; box-sizing: border-box; }
         input:focus, textarea:focus { border-color: #1e40af; box-shadow: 0 0 0 4px rgba(30,64,175,0.15); outline: none; }
         .parts-label { font-size: 14px; font-weight: 600; color: #4b5563; margin: 25px 0 8px 0; }
         textarea { min-height: 130px; resize: vertical; font-family: monospace; }
@@ -22,10 +22,11 @@
         .calc-btn { background: #1e40af; color: white; }
         .print-btn { background: #10b981; color: white; }
         canvas { border: 5px solid #1e40af; border-radius: 16px; background: #f8fafc; display: block; margin: 20px auto; max-width: 100%; box-shadow: 0 10px 30px rgba(30,64,175,0.25); }
-        .sheet-title { text-align: center; font-size: 18px; font-weight: 600; color: #1e40af; margin: 20px 0 8px 0; }
+        .sheet-title { text-align: center; font-size: 18px; font-weight: 600; color: #1e40af; margin: 30px 0 8px 0; }
         .info { font-size: 14px; color: #64748b; text-align: center; margin: 15px 0; }
         .stats { display: flex; gap: 20px; flex-wrap: wrap; margin: 15px 0; }
-        .stat-card { background: #f8fafc; padding: 14px 20px; border-radius: 12px; flex: 1; min-width: 200px; }
+        .stat-card { background: #f8fafc; padding: 14px 20px; border-radius: 12px; flex: 1; min-width: 200px; border: 1px solid #e5e7eb; }
+        @media print { .controls, .btn-group, h1 { display: none !important; } .container { box-shadow: none; padding: 0; max-width: 100%; } canvas { border: 2px solid #333; box-shadow: none; } }
     </style>
 </head>
 <body>
@@ -39,7 +40,7 @@
                 <div class="input-group"><label>Пропил (мм)</label><input type="number" id="kerf" value="4"></div>
             </div>
 
-            <div class="parts-label">Детали (Название, Ш, В, Кол-во, Кромка_Ш, Кромка_В):</div>
+            <div class="parts-label">Детали (Название, Ширина, Высота, Кол-во, Кромка_Ш, Кромка_В):</div>
             <textarea id="partsInput" rows="5">Полка, 800, 400, 4, 1, 2
 Боковина, 1200, 300, 2, 2, 2</textarea>
 
@@ -60,7 +61,9 @@
 
             const input = document.getElementById('partsInput').value.trim();
             let parts = [];
+            let totalEdgeMm = 0;
 
+            // 1. Сбор и анализ деталей
             input.split('\n').forEach(line => {
                 if (!line.trim()) return;
                 const t = line.split(',').map(x => x.trim());
@@ -70,143 +73,189 @@
                 const origW = parseFloat(t[1]);
                 const origH = parseFloat(t[2]);
                 const qty = parseInt(t[3]) || 1;
-                const edgeW = t[4] ? parseFloat(t[4]) : 0;
-                const edgeH = t[5] ? parseFloat(t[5]) : 0;
+                const edgeW = parseInt(t[4]) || 0; 
+                const edgeH = parseInt(t[5]) || 0; 
 
                 if (origW > 0 && origH > 0) {
+                    // Подсчет общей длины кромки
+                    totalEdgeMm += (origW * edgeW + origH * edgeH) * qty;
+
                     for (let i = 0; i < qty; i++) {
                         parts.push({
                             name: name,
-                            w: origW + edgeW * 2,
-                            h: origH + edgeH * 2,
+                            w: origW,
+                            h: origH,
                             originalW: origW,
-                            originalH: origH
+                            originalH: origH,
+                            edgeW: edgeW,
+                            edgeH: edgeH
                         });
                     }
                 }
             });
 
-            if (parts.length === 0) return alert("Нет деталей!");
+            if (parts.length === 0) return alert("Ошибка: Нет корректных деталей для расчета!");
 
-            // === ПЛОТНЫЙ АЛГОРИТМ С НЕСКОЛЬКИМИ ЛИСТАМИ ===
-            parts.sort((a, b) => (b.w * b.h) - (a.w * a.h));
+            // 2. Умная сортировка: от самых больших к маленьким (по максимальной стороне)
+            parts.sort((a, b) => Math.max(b.w, b.h) - Math.max(a.w, a.h));
 
+            // 3. Алгоритм полочной упаковки (Shelf Bin Packing)
             const sheets = [];
-            let currentSheet = [];
-            let x = 10, y = 10, rowMaxH = 0;
 
             for (let p of parts) {
-                let pw = p.w;
-                let ph = p.h;
-                let rotated = false;
+                let placed = false;
+                // Пробуем два варианта: как есть и с поворотом на 90 градусов
+                let orientations = p.w !== p.h 
+                    ? [ {w: p.w, h: p.h, rot: false}, {w: p.h, h: p.w, rot: true} ] 
+                    : [ {w: p.w, h: p.h, rot: false} ];
 
-                // Пробуем повернуть, если так лучше влезет
-                if (x + pw > sheetW - 20 && p.h < p.w) {
-                    rotated = true;
-                    pw = p.h;
-                    ph = p.w;
+                for (let sheet of sheets) {
+                    // Ищем место на существующих полках этого листа
+                    for (let shelf of sheet.shelves) {
+                        for (let ori of orientations) {
+                            if (shelf.x + ori.w <= sheetW && shelf.y + ori.h <= sheetH) {
+                                // Деталь помещается по высоте полки или это первая деталь расширяющая полку
+                                if (shelf.h === 0 || ori.h <= shelf.h) {
+                                    sheet.parts.push({ ...p, x: shelf.x, y: shelf.y, w: ori.w, h: ori.h, rotated: ori.rot });
+                                    shelf.x += ori.w + kerf;
+                                    if (shelf.h === 0) shelf.h = ori.h;
+                                    placed = true; break;
+                                }
+                            }
+                        }
+                        if (placed) break;
+                    }
+                    if (placed) break;
+
+                    // Если не влезло на полки, пытаемся создать новую полку на ЭТОМ ЖЕ листе
+                    if (!placed) {
+                        for (let ori of orientations) {
+                            let lastShelf = sheet.shelves[sheet.shelves.length - 1];
+                            let newY = lastShelf.y + lastShelf.h + kerf;
+                            if (newY + ori.h <= sheetH && ori.w <= sheetW) {
+                                let newShelf = { y: newY, h: ori.h, x: ori.w + kerf };
+                                sheet.shelves.push(newShelf);
+                                sheet.parts.push({ ...p, x: 0, y: newY, w: ori.w, h: ori.h, rotated: ori.rot });
+                                placed = true; break;
+                            }
+                        }
+                    }
+                    if (placed) break;
                 }
 
-                if (x + pw > sheetW - 20) {
-                    x = 10;
-                    y += rowMaxH + kerf;
-                    rowMaxH = 0;
+                // Если деталь так и не влезла никуда — берем НОВЫЙ ЛИСТ
+                if (!placed) {
+                    let ori = orientations[0];
+                    // Если деталь шире листа, принудительно поворачиваем
+                    if (ori.w > sheetW || ori.h > sheetH) {
+                        if (orientations[1] && orientations[1].w <= sheetW && orientations[1].h <= sheetH) ori = orientations[1];
+                    }
+                    
+                    let newSheet = { 
+                        shelves: [{ y: 0, h: ori.h, x: ori.w + kerf }], 
+                        parts: [{ ...p, x: 0, y: 0, w: ori.w, h: ori.h, rotated: ori.rot }] 
+                    };
+                    sheets.push(newSheet);
                 }
-
-                if (y + ph > sheetH - 20) {
-                    sheets.push(currentSheet);
-                    currentSheet = [];
-                    x = 10;
-                    y = 10;
-                    rowMaxH = 0;
-                }
-
-                currentSheet.push({ ...p, rotated, x: x, y: y });
-                rowMaxH = Math.max(rowMaxH, ph);
-                x += pw + kerf;
             }
-            if (currentSheet.length > 0) sheets.push(currentSheet);
 
-            // === ФОРМИРОВАНИЕ РЕЗУЛЬТАТА ===
+            // 4. Отрисовка результатов
+            const totalEdgeMeters = (totalEdgeMm / 1000).toFixed(2);
+
             let html = `
-                <h2 style="color:#1e40af;">✅ Раскрой готов</h2>
-                <div style="display:flex; gap:20px; flex-wrap:wrap; margin:15px 0;">
-                    <div style="background:#f8fafc; padding:15px 20px; border-radius:12px; flex:1;">
-                        <strong>Листов использовано:</strong><br>
-                        <span style="font-size:32px; color:#1e40af;">${sheets.length}</span>
+                <h2 style="color:#1e40af;">✅ Раскрой завершен</h2>
+                <div class="stats">
+                    <div class="stat-card">
+                        <strong>Листов потребуется:</strong><br>
+                        <span style="font-size:32px; color:#1e40af; font-weight:bold;">${sheets.length}</span>
                     </div>
-                    <div style="background:#f8fafc; padding:15px 20px; border-radius:12px; flex:1;">
+                    <div class="stat-card">
                         <strong>Общая длина кромки:</strong><br>
-                        <span style="font-size:32px; color:#10b981;">${(sheets.length * (sheetW + sheetH) * 2 / 1000).toFixed(1)} метров</span>
+                        <span style="font-size:32px; color:#ef4444; font-weight:bold;">${totalEdgeMeters} м</span>
+                    </div>
+                    <div class="stat-card">
+                        <strong>Всего деталей:</strong><br>
+                        <span style="font-size:32px; color:#10b981; font-weight:bold;">${parts.length} шт.</span>
                     </div>
                 </div>
+                <p style="font-size:14px; color:#64748b;">🔄 Желтые детали — повернуты алгоритмом для плотности. <span style="color:#ef4444; font-weight:bold;">Красные линии</span> — места нанесения кромки.</p>
             `;
 
             sheets.forEach((sheetParts, i) => {
                 html += `<div class="sheet-title">ЛИСТ ${i+1} — ${sheetW} × ${sheetH} мм</div>`;
-                html += `<canvas id="canvas${i}" width="${sheetW*0.85 + 100}" height="${sheetH*0.85 + 100}"></canvas>`;
+                html += `<canvas id="canvas${i}" width="${sheetW}" height="${sheetH}"></canvas>`;
             });
 
             document.getElementById('results').innerHTML = html;
 
-            // Рисуем каждый лист
-            sheets.forEach((sheetParts, i) => {
+            // Рендер чертежей с кромками
+            sheets.forEach((sheet, i) => {
                 setTimeout(() => {
                     const canvas = document.getElementById(`canvas${i}`);
                     const ctx = canvas.getContext('2d');
-                    const scale = Math.min((canvas.width - 100) / sheetW, (canvas.height - 100) / sheetH);
+                    
+                    // Масштабируем холст для красивого отображения в браузере
+                    const displayWidth = 800;
+                    const scale = displayWidth / sheetW;
+                    canvas.style.width = '100%';
+                    canvas.style.maxWidth = displayWidth + 'px';
+                    canvas.height = sheetH * scale;
 
+                    ctx.scale(scale, scale);
+
+                    // Фон и рамка листа
                     ctx.fillStyle = '#f8fafc';
-                    ctx.fillRect(50, 50, sheetW*scale, sheetH*scale);
+                    ctx.fillRect(0, 0, sheetW, sheetH);
                     ctx.strokeStyle = '#1e40af';
-                    ctx.lineWidth = 12;
-                    ctx.strokeRect(50, 50, sheetW*scale, sheetH*scale);
+                    ctx.lineWidth = 4 / scale;
+                    ctx.strokeRect(0, 0, sheetW, sheetH);
 
-                    // Размеры листа
-                    ctx.fillStyle = '#1e40af';
-                    ctx.font = '600 18px Inter';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(`${sheetW} мм`, 50 + sheetW*scale/2, 35);
-                    ctx.save();
-                    ctx.rotate(-Math.PI/2);
-                    ctx.fillText(`${sheetH} мм`, -50 - sheetH*scale/2, 35);
-                    ctx.restore();
+                    // Рисуем детали
+                    sheet.parts.forEach(p => {
+                        const px = p.x;
+                        const py = p.y;
+                        const pw = p.w;
+                        const ph = p.h;
 
-                    sheetParts.forEach(p => {
-                        const px = p.x * scale + 50;
-                        const py = p.y * scale + 50;
-                        const pw = p.w * scale;
-                        const ph = p.h * scale;
+                        // Заливка детали
+                        ctx.fillStyle = p.rotated ? '#fde047' : '#bfdbfe'; // Желтый или синий
+                        ctx.fillRect(px, py, pw, ph);
 
-                        ctx.fillStyle = p.rotated ? '#fbbf24' : '#1e40af';
-                        ctx.fillRect(px + 4, py + 4, pw - 12, ph - 12);
+                        // Рамка детали
+                        ctx.strokeStyle = '#1e2937';
+                        ctx.lineWidth = 2 / scale;
+                        ctx.strokeRect(px, py, pw, ph);
 
-                        ctx.strokeStyle = '#111';
-                        ctx.lineWidth = 5;
-                        ctx.strokeRect(px + 4, py + 4, pw - 12, ph - 12);
+                        // === РИСУЕМ КРОМКУ (КРАСНЫЕ ЛИНИИ) ===
+                        ctx.strokeStyle = '#ef4444'; // Красный цвет кромки
+                        ctx.lineWidth = 6 / scale; 
+                        
+                        // Если деталь повернута, кромки меняются местами
+                        let drawEdgeW = p.rotated ? p.edgeH : p.edgeW;
+                        let drawEdgeH = p.rotated ? p.edgeW : p.edgeH;
 
-                        // Пропил (кромка)
-                        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-                        ctx.lineWidth = 3;
-                        ctx.strokeRect(px + 7, py + 7, pw - 18, ph - 18);
+                        // Горизонтальные кромки (Ширина)
+                        if (drawEdgeW > 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + pw, py); ctx.stroke(); }
+                        if (drawEdgeW > 1) { ctx.beginPath(); ctx.moveTo(px, py + ph); ctx.lineTo(px + pw, py + ph); ctx.stroke(); }
+                        // Вертикальные кромки (Высота)
+                        if (drawEdgeH > 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + ph); ctx.stroke(); }
+                        if (drawEdgeH > 1) { ctx.beginPath(); ctx.moveTo(px + pw, py); ctx.lineTo(px + pw, py + ph); ctx.stroke(); }
 
-                        // Размер
-                        ctx.fillStyle = 'white';
-                        ctx.font = '700 15px Inter';
+                        // Текст размеров
+                        ctx.fillStyle = '#111827';
+                        ctx.font = `bold ${Math.max(14 / scale, 12)}px Inter`;
                         ctx.textAlign = 'center';
-                        ctx.fillText(`${Math.round(p.originalW)}×${Math.round(p.originalH)}`, px + pw/2, py + ph/2 + 6);
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(`${p.originalW}×${p.originalH}`, px + pw/2, py + ph/2 - (6/scale));
 
-                        // Название
-                        ctx.font = '600 13px Inter';
-                        let label = p.name.length > 12 ? p.name.substring(0,11)+'…' : p.name;
-                        if (p.rotated) label += ' ↻';
-                        ctx.fillText(label, px + pw/2, py + 24);
+                        // Имя детали
+                        ctx.font = `${Math.max(12 / scale, 10)}px Inter`;
+                        let label = p.name.length > 10 ? p.name.substring(0,9)+'…' : p.name;
+                        ctx.fillText(label, px + pw/2, py + ph/2 + (8/scale));
                     });
                 }, i * 30);
             });
         }
-
-        window.calculateCutting = calculateCutting;
     </script>
 </body>
 </html>
