@@ -50,7 +50,7 @@
         </div>
 
         <div id="results"></div>
-        <div class="info">🖱️ Перетаскивай и поворачивай внутри листа • Кромка видна как зазор • Листы добавляются только по необходимости</div>
+        <div class="info">🖱️ Перетаскивай и поворачивай внутри листа • Кромка — белый зазор • Листы добавляются только по необходимости</div>
     </div>
 
     <script>
@@ -101,12 +101,12 @@
 
             if (parts.length === 0) return alert("Нет деталей!");
 
-            autoPlaceOptimized();
+            autoPlaceDense();
             renderAllSheets();
         }
 
-        function autoPlaceOptimized() {
-            parts.sort((a, b) => (b.w * b.h) - (a.w * a.h)); // по площади
+        function autoPlaceDense() {
+            parts.sort((a, b) => (b.w * b.h) - (a.w * a.h));
 
             let currentSheet = 0;
             let x = 10, y = 10, rowMaxH = 0;
@@ -123,14 +123,12 @@
                     ph = p.w;
                 }
 
-                // Новая строка, если не влезает
                 if (x + pw > sheetW - 20) {
                     x = 10;
                     y += rowMaxH + kerf;
                     rowMaxH = 0;
                 }
 
-                // Новый лист, если не влезает по высоте
                 if (y + ph > sheetH - 20) {
                     currentSheet++;
                     x = 10;
@@ -166,18 +164,19 @@
                 resultsDiv.appendChild(canvas);
 
                 drawSheet(canvas, sheetParts, s);
-                addInteractivity(canvas, s);
+                addInteractivity(canvas, s);   // каждый лист получает свою независимую интерактивность
             }
         }
 
         function drawSheet(canvas, sheetParts, sheetNum) {
             const ctx = canvas.getContext('2d');
-            scale = Math.min((canvas.width - offset*2) / sheetW, (canvas.height - offset*2 - 40) / sheetH);
+            const localScale = Math.min((canvas.width - offset*2) / sheetW, (canvas.height - offset*2 - 40) / sheetH);
+            scale = localScale; // обновляем только для текущего canvas
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const drawW = sheetW * scale;
-            const drawH = sheetH * scale;
+            const drawW = sheetW * localScale;
+            const drawH = sheetH * localScale;
 
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(offset, offset, drawW, drawH);
@@ -195,10 +194,10 @@
             ctx.restore();
 
             sheetParts.forEach(p => {
-                const px = p.x * scale + offset;
-                const py = p.y * scale + offset;
-                const pw = p.w * scale;
-                const ph = p.h * scale;
+                const px = p.x * localScale + offset;
+                const py = p.y * localScale + offset;
+                const pw = p.w * localScale;
+                const ph = p.h * localScale;
 
                 ctx.fillStyle = p.rotated ? '#fbbf24' : '#1e40af';
                 ctx.fillRect(px + 4, py + 4, pw - 12, ph - 12);
@@ -215,12 +214,12 @@
                 ctx.fillStyle = 'white';
                 ctx.font = '700 15px Inter';
                 ctx.textAlign = 'center';
-                ctx.fillText(`${Math.round(p.originalW)}×${Math.round(p.originalH)}`, px + pw/2, py + ph/2 + 6); // центр
-                ctx.fillText(`${Math.round(p.originalW)}`, px + pw/2, py + ph - 12); // низ
+                ctx.fillText(`${Math.round(p.originalW)}×${Math.round(p.originalH)}`, px + pw/2, py + ph/2 + 6);
+                ctx.fillText(`${Math.round(p.originalW)}`, px + pw/2, py + ph - 12);
                 ctx.save();
                 ctx.translate(px + 14, py + ph/2);
                 ctx.rotate(-Math.PI/2);
-                ctx.fillText(`${Math.round(p.originalH)}`, 0, 0); // левая сторона
+                ctx.fillText(`${Math.round(p.originalH)}`, 0, 0);
                 ctx.restore();
 
                 ctx.font = '600 13px Inter';
@@ -234,6 +233,7 @@
             let selectedPart = null;
             let isDragging = false;
             let dragStartX = 0, dragStartY = 0;
+            const localScale = scale; // захватываем масштаб именно этого canvas
 
             function getPos(e) {
                 const rect = canvas.getBoundingClientRect();
@@ -244,9 +244,9 @@
                 const sheetParts = parts.filter(p => p.sheet === currentSheet);
                 for (let i = sheetParts.length - 1; i >= 0; i--) {
                     const p = sheetParts[i];
-                    const px = p.x * scale + offset;
-                    const py = p.y * scale + offset;
-                    if (mx > px && mx < px + p.w*scale && my > py && my < py + p.h*scale) return p;
+                    const px = p.x * localScale + offset;
+                    const py = p.y * localScale + offset;
+                    if (mx > px && mx < px + p.w*localScale && my > py && my < py + p.h*localScale) return p;
                 }
                 return null;
             }
@@ -259,10 +259,7 @@
                 return false;
             }
 
-            canvas.addEventListener('mousedown', startMove);
-            canvas.addEventListener('touchstart', startMove);
-
-            function startMove(e) {
+            const startMove = (e) => {
                 e.preventDefault();
                 const pos = getPos(e);
                 const part = hitTest(pos.x, pos.y);
@@ -271,17 +268,14 @@
                 isDragging = true;
                 dragStartX = part.x;
                 dragStartY = part.y;
-            }
+            };
 
-            canvas.addEventListener('mousemove', doMove);
-            canvas.addEventListener('touchmove', doMove);
-
-            function doMove(e) {
+            const doMove = (e) => {
                 if (!isDragging || !selectedPart) return;
                 e.preventDefault();
                 const pos = getPos(e);
-                selectedPart.x = (pos.x - offset) / scale - selectedPart.w / 2;
-                selectedPart.y = (pos.y - offset) / scale - selectedPart.h / 2;
+                selectedPart.x = (pos.x - offset) / localScale - selectedPart.w / 2;
+                selectedPart.y = (pos.y - offset) / localScale - selectedPart.h / 2;
 
                 if (selectedPart.x < 0) selectedPart.x = 0;
                 if (selectedPart.y < 0) selectedPart.y = 0;
@@ -289,12 +283,9 @@
                 if (selectedPart.y + selectedPart.h > sheetH) selectedPart.y = sheetH - selectedPart.h;
 
                 redrawCurrentSheet(canvas, currentSheet);
-            }
+            };
 
-            canvas.addEventListener('mouseup', endMove);
-            canvas.addEventListener('touchend', endMove);
-
-            function endMove() {
+            const endMove = () => {
                 if (!selectedPart) return;
                 const sheetParts = parts.filter(p => p.sheet === currentSheet);
                 if (checkOverlap(selectedPart, sheetParts)) {
@@ -304,9 +295,17 @@
                 isDragging = false;
                 selectedPart = null;
                 redrawCurrentSheet(canvas, currentSheet);
-            }
+            };
 
-            canvas.addEventListener('click', e => {
+            canvas.addEventListener('mousedown', startMove);
+            canvas.addEventListener('touchstart', startMove);
+            canvas.addEventListener('mousemove', doMove);
+            canvas.addEventListener('touchmove', doMove);
+            canvas.addEventListener('mouseup', endMove);
+            canvas.addEventListener('touchend', endMove);
+
+            // Поворот по клику
+            canvas.addEventListener('click', (e) => {
                 if (isDragging) return;
                 const pos = getPos(e);
                 const part = hitTest(pos.x, pos.y);
@@ -326,7 +325,7 @@
 
         function resetLayout() {
             if (parts.length > 0) {
-                autoPlaceOptimized();
+                autoPlaceDense();
                 renderAllSheets();
             }
         }
@@ -334,7 +333,7 @@
         document.getElementById('calcBtn').addEventListener('click', calculateCutting);
         document.getElementById('resetBtn').addEventListener('click', resetLayout);
 
-        console.log("✅ Мастер раскроя PRO v8 — плотный раскрой");
+        console.log("✅ Мастер раскроя PRO v9 — плотный раскрой + исправленная интерактивность");
     </script>
 </body>
 </html>
