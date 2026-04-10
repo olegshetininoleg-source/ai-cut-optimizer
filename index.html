@@ -7,7 +7,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
         body { font-family: 'Inter', system-ui, sans-serif; background: linear-gradient(135deg, #f0f2f5, #e8eaf0); padding: 20px; margin: 0; color: #1f2937; }
-        .container { max-width: 960px; margin: 0 auto; background: white; padding: 35px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 35px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
         h1 { color: #1e40af; text-align: center; margin: 0 0 30px; font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 12px; }
         .logo { font-size: 32px; }
         .inputs-row { display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap; }
@@ -22,7 +22,8 @@
         .calc-btn { background: #1e40af; color: white; }
         .reset-btn { background: #64748b; color: white; }
         .print-btn { background: #10b981; color: white; }
-        canvas { border: 5px solid #1e40af; border-radius: 16px; background: #f8fafc; display: block; margin: 20px auto; max-width: 100%; box-shadow: 0 10px 30px rgba(30,64,175,0.25); cursor: grab; }
+        canvas { border: 5px solid #1e40af; border-radius: 16px; background: #f8fafc; display: block; margin: 20px auto; max-width: 100%; box-shadow: 0 10px 30px rgba(30,64,175,0.25); }
+        .sheet-title { text-align: center; font-size: 18px; font-weight: 600; color: #1e40af; margin: 15px 0 8px 0; }
         .info { font-size: 14px; color: #64748b; text-align: center; margin: 15px 0; }
     </style>
 </head>
@@ -48,23 +49,17 @@
             </div>
         </div>
 
-        <div id="results">
-            <canvas id="cuttingCanvas" width="860" height="560"></canvas>
-            <div class="info">🖱️ Перетаскивай • Клик/тап по детали = поворот 90° • Размеры — чистые</div>
-        </div>
+        <div id="results"></div>
+        <div class="info">🖱️ Перетаскивай детали • Клик/тап по детали = поворот 90° • Кромка видна как зазор</div>
     </div>
 
     <script>
         let parts = [];
         let sheetW = 2440, sheetH = 1220, kerf = 4;
         let scale = 1;
-        const offsetX = 40, offsetY = 40;
-        let selectedPart = null;
-        let isDragging = false;
-        let dragStartX, dragStartY;
+        const offset = 50;
 
-        const canvas = document.getElementById('cuttingCanvas');
-        const ctx = canvas.getContext('2d');
+        const resultsDiv = document.getElementById('results');
 
         function calculateCutting() {
             sheetW = parseFloat(document.getElementById('sheetW').value) || 2440;
@@ -74,8 +69,7 @@
             const input = document.getElementById('partsInput').value.trim();
             parts = [];
 
-            const lines = input.split('\n');
-            lines.forEach((line, idx) => {
+            input.split('\n').forEach((line, idx) => {
                 if (!line.trim()) return;
                 const t = line.split(',').map(x => x.trim());
                 if (t.length < 4) return;
@@ -91,37 +85,42 @@
                     for (let i = 0; i < qty; i++) {
                         parts.push({
                             id: idx*100 + i,
-                            name: name,
+                            name,
                             originalW: origW,
                             originalH: origH,
-                            w: origW + edgeW*2,      // реальный размер для раскроя
+                            w: origW + edgeW*2,
                             h: origH + edgeH*2,
                             x: 0,
                             y: 0,
-                            rotated: false
+                            rotated: false,
+                            sheet: 0
                         });
                     }
                 }
             });
 
             if (parts.length === 0) return alert("Нет деталей!");
-            autoPlaceParts();
-            redraw();
+
+            autoPlaceWithMultipleSheets();
+            renderAllSheets();
         }
 
-        function autoPlaceParts() {
+        function autoPlaceWithMultipleSheets() {
             parts.sort((a,b) => (b.w * b.h) - (a.w * a.h));
+            let currentSheet = 0;
             let x = 10, y = 10, rowMaxH = 0;
 
             for (let p of parts) {
                 let pw = p.w;
                 let ph = p.h;
-                let rotated = false;
+                p.rotated = false;
 
-                if (x + pw > sheetW - 20 && p.h < p.w) {
-                    rotated = true;
-                    pw = p.h;
-                    ph = p.w;
+                if (x + pw > sheetW - 20) {
+                    if (p.h < p.w) {
+                        p.rotated = true;
+                        pw = p.h;
+                        ph = p.w;
+                    }
                 }
 
                 if (x + pw > sheetW - 20) {
@@ -130,60 +129,90 @@
                     rowMaxH = 0;
                 }
 
+                if (y + ph > sheetH - 20) {
+                    currentSheet++;
+                    x = 10;
+                    y = 10;
+                    rowMaxH = 0;
+                }
+
                 p.x = x;
                 p.y = y;
                 p.w = pw;
                 p.h = ph;
-                p.rotated = rotated;
+                p.sheet = currentSheet;
                 rowMaxH = Math.max(rowMaxH, ph);
                 x += pw + kerf;
             }
         }
 
-        function redraw() {
-            scale = Math.min(820 / sheetW, 520 / sheetH);
-            canvas.width = sheetW * scale + offsetX * 2;
-            canvas.height = sheetH * scale + offsetY * 2 + 70;
+        function renderAllSheets() {
+            resultsDiv.innerHTML = '';
+            const maxSheet = Math.max(...parts.map(p => p.sheet));
+
+            for (let s = 0; s <= maxSheet; s++) {
+                const sheetParts = parts.filter(p => p.sheet === s);
+
+                const title = document.createElement('div');
+                title.className = 'sheet-title';
+                title.textContent = `ЛИСТ ${s+1} — ${sheetW} × ${sheetH} мм`;
+                resultsDiv.appendChild(title);
+
+                const canvas = document.createElement('canvas');
+                canvas.width = sheetW * 0.85 + offset * 2;
+                canvas.height = sheetH * 0.85 + offset * 2 + 30;
+                resultsDiv.appendChild(canvas);
+
+                drawSheet(canvas, sheetParts, s);
+            }
+        }
+
+        function drawSheet(canvas, sheetParts, sheetNum) {
+            const ctx = canvas.getContext('2d');
+            scale = Math.min( (canvas.width - offset*2) / sheetW , (canvas.height - offset*2 - 30) / sheetH );
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            const drawW = sheetW * scale;
+            const drawH = sheetH * scale;
+
             // Лист
             ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(offsetX, offsetY, sheetW*scale, sheetH*scale);
+            ctx.fillRect(offset, offset, drawW, drawH);
             ctx.strokeStyle = '#1e40af';
-            ctx.lineWidth = 12;
-            ctx.strokeRect(offsetX, offsetY, sheetW*scale, sheetH*scale);
+            ctx.lineWidth = 10;
+            ctx.strokeRect(offset, offset, drawW, drawH);
 
             // Размеры листа
             ctx.fillStyle = '#1e40af';
-            ctx.font = '500 18px Inter';
+            ctx.font = '600 17px Inter';
             ctx.textAlign = 'center';
-            ctx.fillText(`${sheetW} мм`, canvas.width/2, offsetY - 15);
+            ctx.fillText(`${sheetW} мм`, offset + drawW/2, offset - 15);
             ctx.save();
             ctx.rotate(-Math.PI/2);
-            ctx.fillText(`${sheetH} мм`, -canvas.height/2 + 30, offsetX - 18);
+            ctx.fillText(`${sheetH} мм`, -offset - drawH/2, offset - 20);
             ctx.restore();
 
-            // Детали
-            parts.forEach(p => {
-                const px = p.x * scale + offsetX;
-                const py = p.y * scale + offsetY;
+            sheetParts.forEach(p => {
+                const px = p.x * scale + offset;
+                const py = p.y * scale + offset;
                 const pw = p.w * scale;
                 const ph = p.h * scale;
 
+                // Деталь
                 ctx.fillStyle = p.rotated ? '#fbbf24' : '#1e40af';
-                ctx.fillRect(px + 2, py + 2, pw - 8, ph - 8);
+                ctx.fillRect(px + 3, py + 3, pw - 10, ph - 10);
 
-                ctx.strokeStyle = '#1e2937';
+                ctx.strokeStyle = '#111';
                 ctx.lineWidth = 4;
-                ctx.strokeRect(px + 2, py + 2, pw - 8, ph - 8);
+                ctx.strokeRect(px + 3, py + 3, pw - 10, ph - 10);
 
-                // Пропил (тонкие линии)
-                ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(px + 2, py + 2, pw - 8, ph - 8);
+                // Пропил (зазор)
+                ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(px + 4, py + 4, pw - 12, ph - 12);
 
-                // Размер (чистый!)
+                // Размер чистый
                 ctx.fillStyle = 'white';
                 ctx.font = '700 15px Inter';
                 ctx.textAlign = 'center';
@@ -191,107 +220,25 @@
 
                 // Название
                 ctx.font = '600 13px Inter';
-                let label = p.name.length > 11 ? p.name.substring(0,10)+'…' : p.name;
+                let label = p.name.length > 12 ? p.name.substring(0,11)+'…' : p.name;
                 if (p.rotated) label += ' ↻';
                 ctx.fillText(label, px + pw/2, py + 22);
             });
         }
 
         function resetLayout() {
-            if (parts.length > 0) autoPlaceParts();
-            redraw();
-        }
-
-        // Перетаскивание + проверка наложения
-        function getPos(e) {
-            const rect = canvas.getBoundingClientRect();
-            return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
-        }
-
-        function hitTest(mx, my) {
-            for (let i = parts.length-1; i >= 0; i--) {
-                const p = parts[i];
-                const px = p.x * scale + offsetX;
-                const py = p.y * scale + offsetY;
-                if (mx > px && mx < px + p.w*scale && my > py && my < py + p.h*scale) return p;
+            if (parts.length > 0) {
+                parts.forEach(p => p.sheet = 0);
+                autoPlaceWithMultipleSheets();
+                renderAllSheets();
             }
-            return null;
         }
-
-        function checkOverlap(moved) {
-            for (let p of parts) {
-                if (p.id === moved.id) continue;
-                if (!(moved.x + moved.w <= p.x || moved.x >= p.x + p.w ||
-                      moved.y + moved.h <= p.y || moved.y >= p.y + p.h)) return true;
-            }
-            return false;
-        }
-
-        canvas.addEventListener('mousedown', startDrag);
-        canvas.addEventListener('touchstart', startDrag);
-
-        function startDrag(e) {
-            e.preventDefault();
-            const pos = getPos(e);
-            const part = hitTest(pos.x, pos.y);
-            if (!part) return;
-            selectedPart = part;
-            isDragging = true;
-            dragStartX = part.x;
-            dragStartY = part.y;
-        }
-
-        canvas.addEventListener('mousemove', drag);
-        canvas.addEventListener('touchmove', drag);
-
-        function drag(e) {
-            if (!isDragging || !selectedPart) return;
-            e.preventDefault();
-            const pos = getPos(e);
-            selectedPart.x = (pos.x - offsetX)/scale - selectedPart.w/2;
-            selectedPart.y = (pos.y - offsetY)/scale - selectedPart.h/2;
-
-            if (selectedPart.x < 0) selectedPart.x = 0;
-            if (selectedPart.y < 0) selectedPart.y = 0;
-            if (selectedPart.x + selectedPart.w > sheetW) selectedPart.x = sheetW - selectedPart.w;
-            if (selectedPart.y + selectedPart.h > sheetH) selectedPart.y = sheetH - selectedPart.h;
-
-            redraw();
-        }
-
-        canvas.addEventListener('mouseup', endDrag);
-        canvas.addEventListener('touchend', endDrag);
-
-        function endDrag() {
-            if (!selectedPart) return;
-            if (checkOverlap(selectedPart)) {
-                selectedPart.x = dragStartX;
-                selectedPart.y = dragStartY;
-            }
-            isDragging = false;
-            selectedPart = null;
-            redraw();
-        }
-
-        // Поворот по клику/тапу
-        canvas.addEventListener('click', (e) => {
-            if (isDragging) return;
-            const pos = getPos(e);
-            const part = hitTest(pos.x, pos.y);
-            if (!part) return;
-
-            const temp = part.w;
-            part.w = part.h;
-            part.h = temp;
-            part.rotated = !part.rotated;
-            redraw();
-        });
 
         // Кнопки
         document.getElementById('calcBtn').addEventListener('click', calculateCutting);
         document.getElementById('resetBtn').addEventListener('click', resetLayout);
 
-        console.log("✅ Мастер раскроя PRO v5.1 загружен");
+        console.log("✅ Мастер раскроя PRO v6 загружен");
     </script>
 </body>
 </html>
