@@ -22,8 +22,8 @@
         .calc-btn { background: #1e40af; color: white; }
         .reset-btn { background: #64748b; color: white; }
         .print-btn { background: #10b981; color: white; }
-        canvas { border: 5px solid #1e40af; border-radius: 16px; background: #f8fafc; display: block; margin: 20px auto; max-width: 100%; box-shadow: 0 10px 30px rgba(30,64,175,0.25); }
-        .sheet-title { text-align: center; font-size: 18px; font-weight: 600; color: #1e40af; margin: 15px 0 8px 0; }
+        canvas { border: 5px solid #1e40af; border-radius: 16px; background: #f8fafc; display: block; margin: 20px auto; max-width: 100%; box-shadow: 0 10px 30px rgba(30,64,175,0.25); cursor: grab; }
+        .sheet-title { text-align: center; font-size: 18px; font-weight: 600; color: #1e40af; margin: 20px 0 8px 0; }
         .info { font-size: 14px; color: #64748b; text-align: center; margin: 15px 0; }
     </style>
 </head>
@@ -50,7 +50,7 @@
         </div>
 
         <div id="results"></div>
-        <div class="info">🖱️ Перетаскивай детали • Клик/тап по детали = поворот 90° • Кромка видна как зазор</div>
+        <div class="info">🖱️ Перетаскивай детали • Клик/тап по детали = поворот 90° • Размер на каждой стороне</div>
     </div>
 
     <script>
@@ -101,12 +101,14 @@
 
             if (parts.length === 0) return alert("Нет деталей!");
 
-            autoPlaceWithMultipleSheets();
+            autoPlaceWithBetterPacking();
             renderAllSheets();
         }
 
-        function autoPlaceWithMultipleSheets() {
-            parts.sort((a,b) => (b.w * b.h) - (a.w * a.h));
+        function autoPlaceWithBetterPacking() {
+            // Улучшенная сортировка — сначала самые большие детали
+            parts.sort((a, b) => (Math.max(b.w, b.h) * Math.max(b.originalW, b.originalH)) - (Math.max(a.w, a.h) * Math.max(a.originalW, a.originalH)));
+
             let currentSheet = 0;
             let x = 10, y = 10, rowMaxH = 0;
 
@@ -115,20 +117,24 @@
                 let ph = p.h;
                 p.rotated = false;
 
-                if (x + pw > sheetW - 20) {
-                    if (p.h < p.w) {
-                        p.rotated = true;
-                        pw = p.h;
-                        ph = p.w;
-                    }
+                // Пробуем оба варианта ориентации и выбираем лучший
+                const fitNormal = (x + pw <= sheetW - 20);
+                const fitRotated = (p.h < p.w) && (x + p.h <= sheetW - 20);
+
+                if (!fitNormal && fitRotated) {
+                    p.rotated = true;
+                    pw = p.h;
+                    ph = p.w;
                 }
 
+                // Если не влезает в строку — новая строка
                 if (x + pw > sheetW - 20) {
                     x = 10;
                     y += rowMaxH + kerf;
                     rowMaxH = 0;
                 }
 
+                // Если не влезает по высоте — новый лист
                 if (y + ph > sheetH - 20) {
                     currentSheet++;
                     x = 10;
@@ -160,16 +166,17 @@
 
                 const canvas = document.createElement('canvas');
                 canvas.width = sheetW * 0.85 + offset * 2;
-                canvas.height = sheetH * 0.85 + offset * 2 + 30;
+                canvas.height = sheetH * 0.85 + offset * 2 + 40;
                 resultsDiv.appendChild(canvas);
 
                 drawSheet(canvas, sheetParts, s);
+                addInteractivity(canvas, s);   // ← добавляем перетаскивание и поворот для каждого листа
             }
         }
 
         function drawSheet(canvas, sheetParts, sheetNum) {
             const ctx = canvas.getContext('2d');
-            scale = Math.min( (canvas.width - offset*2) / sheetW , (canvas.height - offset*2 - 30) / sheetH );
+            scale = Math.min( (canvas.width - offset*2) / sheetW , (canvas.height - offset*2 - 40) / sheetH );
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -180,17 +187,17 @@
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(offset, offset, drawW, drawH);
             ctx.strokeStyle = '#1e40af';
-            ctx.lineWidth = 10;
+            ctx.lineWidth = 12;
             ctx.strokeRect(offset, offset, drawW, drawH);
 
             // Размеры листа
             ctx.fillStyle = '#1e40af';
-            ctx.font = '600 17px Inter';
+            ctx.font = '600 18px Inter';
             ctx.textAlign = 'center';
-            ctx.fillText(`${sheetW} мм`, offset + drawW/2, offset - 15);
+            ctx.fillText(`${sheetW} мм`, offset + drawW/2, offset - 18);
             ctx.save();
             ctx.rotate(-Math.PI/2);
-            ctx.fillText(`${sheetH} мм`, -offset - drawH/2, offset - 20);
+            ctx.fillText(`${sheetH} мм`, -offset - drawH/2, offset - 25);
             ctx.restore();
 
             sheetParts.forEach(p => {
@@ -201,35 +208,149 @@
 
                 // Деталь
                 ctx.fillStyle = p.rotated ? '#fbbf24' : '#1e40af';
-                ctx.fillRect(px + 3, py + 3, pw - 10, ph - 10);
+                ctx.fillRect(px + 4, py + 4, pw - 12, ph - 12);
 
                 ctx.strokeStyle = '#111';
-                ctx.lineWidth = 4;
-                ctx.strokeRect(px + 3, py + 3, pw - 10, ph - 10);
-
-                // Пропил (зазор)
-                ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-                ctx.lineWidth = 3;
+                ctx.lineWidth = 5;
                 ctx.strokeRect(px + 4, py + 4, pw - 12, ph - 12);
 
-                // Размер чистый
+                // Пропил (чёткий зазор)
+                ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(px + 6, py + 6, pw - 16, ph - 16);
+
+                // РАЗМЕР НА КАЖДОЙ СТОРОНЕ
                 ctx.fillStyle = 'white';
                 ctx.font = '700 15px Inter';
                 ctx.textAlign = 'center';
+
+                // Центр (основной размер)
                 ctx.fillText(`${Math.round(p.originalW)}×${Math.round(p.originalH)}`, px + pw/2, py + ph/2 + 6);
+
+                // Нижняя сторона — ширина
+                ctx.fillText(`${Math.round(p.originalW)}`, px + pw/2, py + ph - 12);
+
+                // Левая сторона — высота (повёрнутый текст)
+                ctx.save();
+                ctx.translate(px + 14, py + ph/2);
+                ctx.rotate(-Math.PI/2);
+                ctx.fillText(`${Math.round(p.originalH)}`, 0, 0);
+                ctx.restore();
 
                 // Название
                 ctx.font = '600 13px Inter';
                 let label = p.name.length > 12 ? p.name.substring(0,11)+'…' : p.name;
                 if (p.rotated) label += ' ↻';
-                ctx.fillText(label, px + pw/2, py + 22);
+                ctx.fillText(label, px + pw/2, py + 24);
             });
+        }
+
+        // ====================== ИНТЕРАКТИВ ДЛЯ КАЖДОГО ЛИСТА ======================
+        function addInteractivity(canvas, currentSheet) {
+            let selectedPart = null;
+            let isDragging = false;
+            let dragStartX = 0, dragStartY = 0;
+
+            function getPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: (e.clientX || e.touches[0].clientX) - rect.left,
+                    y: (e.clientY || e.touches[0].clientY) - rect.top
+                };
+            }
+
+            function hitTest(mx, my) {
+                const sheetParts = parts.filter(p => p.sheet === currentSheet);
+                for (let i = sheetParts.length - 1; i >= 0; i--) {
+                    const p = sheetParts[i];
+                    const px = p.x * scale + offset;
+                    const py = p.y * scale + offset;
+                    if (mx > px && mx < px + p.w*scale && my > py && my < py + p.h*scale) return p;
+                }
+                return null;
+            }
+
+            function checkOverlap(moved, sheetParts) {
+                for (let p of sheetParts) {
+                    if (p.id === moved.id) continue;
+                    if (!(moved.x + moved.w <= p.x || moved.x >= p.x + p.w ||
+                          moved.y + moved.h <= p.y || moved.y >= p.y + p.h)) return true;
+                }
+                return false;
+            }
+
+            // Drag
+            canvas.addEventListener('mousedown', e => startMove(e));
+            canvas.addEventListener('touchstart', e => startMove(e));
+
+            function startMove(e) {
+                e.preventDefault();
+                const pos = getPos(e);
+                const part = hitTest(pos.x, pos.y);
+                if (!part) return;
+                selectedPart = part;
+                isDragging = true;
+                dragStartX = part.x;
+                dragStartY = part.y;
+            }
+
+            canvas.addEventListener('mousemove', e => doMove(e));
+            canvas.addEventListener('touchmove', e => doMove(e));
+
+            function doMove(e) {
+                if (!isDragging || !selectedPart) return;
+                e.preventDefault();
+                const pos = getPos(e);
+                selectedPart.x = (pos.x - offset) / scale - selectedPart.w / 2;
+                selectedPart.y = (pos.y - offset) / scale - selectedPart.h / 2;
+
+                // Не даём вылезти за лист
+                if (selectedPart.x < 0) selectedPart.x = 0;
+                if (selectedPart.y < 0) selectedPart.y = 0;
+                if (selectedPart.x + selectedPart.w > sheetW) selectedPart.x = sheetW - selectedPart.w;
+                if (selectedPart.y + selectedPart.h > sheetH) selectedPart.y = sheetH - selectedPart.h;
+
+                redrawCurrentSheet(canvas, currentSheet);
+            }
+
+            canvas.addEventListener('mouseup', () => endMove());
+            canvas.addEventListener('touchend', () => endMove());
+
+            function endMove() {
+                if (!selectedPart) return;
+                const sheetParts = parts.filter(p => p.sheet === currentSheet);
+                if (checkOverlap(selectedPart, sheetParts)) {
+                    selectedPart.x = dragStartX;
+                    selectedPart.y = dragStartY;
+                }
+                isDragging = false;
+                selectedPart = null;
+                redrawCurrentSheet(canvas, currentSheet);
+            }
+
+            // Поворот по клику
+            canvas.addEventListener('click', e => {
+                if (isDragging) return;
+                const pos = getPos(e);
+                const part = hitTest(pos.x, pos.y);
+                if (!part) return;
+
+                const temp = part.w;
+                part.w = part.h;
+                part.h = temp;
+                part.rotated = !part.rotated;
+                redrawCurrentSheet(canvas, currentSheet);
+            });
+        }
+
+        function redrawCurrentSheet(canvas, sheetNum) {
+            const sheetParts = parts.filter(p => p.sheet === sheetNum);
+            drawSheet(canvas, sheetParts, sheetNum);
         }
 
         function resetLayout() {
             if (parts.length > 0) {
-                parts.forEach(p => p.sheet = 0);
-                autoPlaceWithMultipleSheets();
+                autoPlaceWithBetterPacking();
                 renderAllSheets();
             }
         }
@@ -238,7 +359,7 @@
         document.getElementById('calcBtn').addEventListener('click', calculateCutting);
         document.getElementById('resetBtn').addEventListener('click', resetLayout);
 
-        console.log("✅ Мастер раскроя PRO v6 загружен");
+        console.log("✅ Мастер раскроя PRO v7 — исправлено всё");
     </script>
 </body>
 </html>
