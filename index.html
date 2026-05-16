@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мастер раскроя PRO - SoftHunterPro</title>
+    <title>Cut Optimizer PRO - SoftHunterPro</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { font-family: 'Inter', system-ui, sans-serif; background: linear-gradient(135deg, #f0f2f5, #e8eaf0); padding: 20px; margin: 0; color: #1f2937; }
@@ -32,23 +32,23 @@
 </head>
 <body>
     <div class="container">
-        <h1><span class="logo">🛠️</span> Мастер раскроя PRO</h1>
+        <h1><span class="logo">🛠️</span> Cut Optimizer PRO</h1>
         
         <div class="controls">
             <div class="inputs-row">
-                <div class="input-group"><label>Ширина листа (мм)</label><input type="number" id="sheetW" value="2440"></div>
-                <div class="input-group"><label>Высота листа (мм)</label><input type="number" id="sheetH" value="1220"></div>
-                <div class="input-group"><label>Пропил (мм)</label><input type="number" id="kerf" value="4"></div>
+                <div class="input-group"><label>Sheet Width (mm)</label><input type="number" id="sheetW" value="2440"></div>
+                <div class="input-group"><label>Sheet Height (mm)</label><input type="number" id="sheetH" value="1220"></div>
+                <div class="input-group"><label>Blade Kerf (mm)</label><input type="number" id="kerf" value="4"></div>
             </div>
 
-            <div class="parts-label">Детали (Название, Ширина, Высота, Кол-во, Кромка_Ш, Кромка_В):</div>
-            <textarea id="partsInput" rows="5" placeholder="Пример: Полка, 800, 400, 4, 1, 2">Полка, 800, 400, 4, 1, 2
-Боковина, 1200, 300, 2, 2, 2
-Дно, 800, 500, 1, 1, 1</textarea>
+            <div class="parts-label">Parts (Name, Width, Height, Qty, Edge_W, Edge_H):</div>
+            <textarea id="partsInput" rows="5" placeholder="Example: Shelf, 800, 400, 4, 1, 2">Shelf, 800, 400, 4, 1, 2
+Side Panel, 1200, 300, 2, 2, 2
+Bottom, 800, 500, 1, 1, 1</textarea>
 
             <div class="btn-group">
-                <button class="calc-btn" onclick="calculateCutting()">Рассчитать карту</button>
-                <button class="print-btn" onclick="window.print()">Печать схемы</button>
+                <button class="calc-btn" onclick="calculateCutting()">Calculate Layout</button>
+                <button class="print-btn" onclick="window.print()">Print Layout</button>
             </div>
         </div>
 
@@ -70,7 +70,7 @@
                 const t = line.split(',').map(x => x.trim());
                 if (t.length < 4) return;
 
-                const name = t[0] || "Деталь";
+                const name = t[0] || "Part";
                 const origW = parseFloat(t[1]);
                 const origH = parseFloat(t[2]);
                 const qty = parseInt(t[3]) || 1;
@@ -85,7 +85,7 @@
                 }
             });
 
-            if (parts.length === 0) return alert("Ошибка: Нет корректных деталей для расчета!");
+            if (parts.length === 0) return alert("Error: No valid parts for calculation!");
 
             parts.sort((a, b) => Math.max(b.w, b.h) - Math.max(a.w, a.h));
             const sheets = [];
@@ -139,19 +139,19 @@
 
             let html = `
                 <div class="stats">
-                    <div class="stat-card"><strong>Листов:</strong><br><span style="font-size:32px; color:#1e40af; font-weight:bold;">${sheets.length}</span></div>
-                    <div class="stat-card"><strong>Длина кромки:</strong><br><span style="font-size:32px; color:#ef4444; font-weight:bold;">${totalEdgeMeters} м</span></div>
-                    <div class="stat-card"><strong>Деталей:</strong><br><span style="font-size:32px; color:#10b981; font-weight:bold;">${parts.length} шт.</span></div>
+                    <div class="stat-card"><strong>Sheets:</strong><br><span style="font-size:32px; color:#1e40af; font-weight:bold;">${sheets.length}</span></div>
+                    <div class="stat-card"><strong>Edge Length:</strong><br><span style="font-size:32px; color:#ef4444; font-weight:bold;">${totalEdgeMeters} m</span></div>
+                    <div class="stat-card"><strong>Parts:</strong><br><span style="font-size:32px; color:#10b981; font-weight:bold;">${parts.length} pcs.</span></div>
                 </div>
                 <div class="legend">
-                    <span style="background:#bfdbfe; border: 1px solid #1e2937;"></span> — Обычная деталь &nbsp;&nbsp;
-                    <span style="background:#fef08a; border: 1px solid #1e2937;"></span> — Повернута на 90° &nbsp;&nbsp;
-                    <span style="background:#ef4444; width: 30px; height: 4px;"></span> — Место нанесения кромки
+                    <span style="background:#bfdbfe; border: 1px solid #1e2937;"></span> — Standard Part &nbsp;&nbsp;
+                    <span style="background:#fef08a; border: 1px solid #1e2937;"></span> — Rotated 90° &nbsp;&nbsp;
+                    <span style="background:#ef4444; width: 30px; height: 4px;"></span> — Edge Banding
                 </div>
             `;
 
             sheets.forEach((sheetParts, i) => {
-                html += `<div class="sheet-title">ЛИСТ ${i+1} — ${sheetW} × ${sheetH} мм</div>`;
+                html += `<div class="sheet-title">SHEET ${i+1} — ${sheetW} × ${sheetH} mm</div>`;
                 html += `<canvas id="canvas${i}"></canvas>`;
             });
 
@@ -163,7 +163,7 @@
                     const ctx = canvas.getContext('2d');
                     
                     const displayWidth = 850; 
-                    const padding = 40; // Отступ от краев холста до самого листа материала
+                    const padding = 40; 
                     const scale = (displayWidth - padding * 2) / sheetW;
                     
                     canvas.width = displayWidth;
@@ -171,56 +171,45 @@
                     canvas.style.width = '100%';
                     canvas.style.maxWidth = displayWidth + 'px';
 
-                    // 1. Фон всего холста (белый стол)
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    // 2. Отрисовка самого ЛДСП листа с легкой тенью
                     ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
                     ctx.shadowBlur = 15;
                     ctx.shadowOffsetX = 5;
                     ctx.shadowOffsetY = 5;
-                    ctx.fillStyle = '#f3f4f6'; // Цвет листа (светло-серый)
+                    ctx.fillStyle = '#f3f4f6'; 
                     ctx.fillRect(padding, padding, sheetW * scale, sheetH * scale);
                     
-                    // Сбрасываем тень для деталей и рисуем жесткую границу листа
                     ctx.shadowColor = 'transparent';
                     ctx.strokeStyle = '#9ca3af';
                     ctx.lineWidth = 2;
                     ctx.strokeRect(padding, padding, sheetW * scale, sheetH * scale);
 
-                    // 3. Рисуем детали
                     sheet.parts.forEach(p => {
                         const px = padding + (p.x * scale);
                         const py = padding + (p.y * scale);
                         const pw = p.w * scale;
                         const ph = p.h * scale;
 
-                        // Заливка детали
                         ctx.fillStyle = p.rotated ? '#fef08a' : '#bae6fd'; 
                         ctx.fillRect(px, py, pw, ph);
 
-                        // Граница детали
                         ctx.strokeStyle = '#1f2937';
                         ctx.lineWidth = 1;
                         ctx.strokeRect(px, py, pw, ph);
 
-                        // === КРОМКА (Жирная красная линия) ===
                         ctx.strokeStyle = '#ef4444'; 
                         ctx.lineWidth = 5; 
                         
                         let drawEdgeW = p.rotated ? p.edgeH : p.edgeW;
                         let drawEdgeH = p.rotated ? p.edgeW : p.edgeH;
 
-                        // Вверх/Низ
                         if (drawEdgeW > 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + pw, py); ctx.stroke(); }
                         if (drawEdgeW > 1) { ctx.beginPath(); ctx.moveTo(px, py + ph); ctx.lineTo(px + pw, py + ph); ctx.stroke(); }
-                        // Лево/Право
                         if (drawEdgeH > 0) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + ph); ctx.stroke(); }
                         if (drawEdgeH > 1) { ctx.beginPath(); ctx.moveTo(px + pw, py); ctx.lineTo(px + pw, py + ph); ctx.stroke(); }
 
-                        // === ТЕКСТ ===
-                        // Название детали (по центру)
                         ctx.fillStyle = '#111827';
                         ctx.font = '600 13px Inter';
                         ctx.textAlign = 'center';
@@ -228,7 +217,6 @@
                         let label = p.name.length > 10 ? p.name.substring(0,9)+'…' : p.name;
                         ctx.fillText(label, px + pw/2, py + ph/2 - 6);
 
-                        // Размер (Ширина) - внизу детали
                         ctx.font = '500 12px Inter';
                         ctx.fillStyle = '#4b5563';
                         if (ph > 40) {
@@ -237,7 +225,6 @@
                             ctx.fillText(p.originalW, px + pw/2, py + ph/2 + 8);
                         }
 
-                        // Размер (Высота) - слева детали, повернутый
                         if (pw > 40) {
                             ctx.save();
                             ctx.translate(px + 12, py + ph/2);
